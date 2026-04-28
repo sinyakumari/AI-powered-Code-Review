@@ -49,7 +49,15 @@ export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
   DASHBOARD: '/dashboard',
+  REVIEW: '/review',
+  HISTORY: '/history',
 };
+
+export const NAV_LINKS = [
+  { label: 'Dashboard', href: ROUTES.DASHBOARD },
+  { label: 'Review', href: ROUTES.REVIEW },
+  { label: 'History', href: ROUTES.HISTORY },
+];
 
 /**
  * UI Constants
@@ -69,6 +77,29 @@ export const UI = {
   DIVIDERS: {
     OR_CONNECT: 'OR CONNECT VIA',
   }
+};
+
+/**
+ * Badge Constants
+ */
+export const BADGE_VARIANTS = {
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved', 
+  CLEAN: 'clean',
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low',
+};
+
+export const BADGE_COLORS = {
+  in_progress: { bg: '#1e293b', text: '#3b82f6', border: '#1d4ed8' },
+  resolved: { bg: '#14532d', text: '#4ade80', border: '#166534' },
+  clean: { bg: '#334155', text: '#94a3b8', border: '#475569' },
+  critical: { bg: '#450a0a', text: '#f87171', border: '#7f1d1d' },
+  high: { bg: '#431407', text: '#fb923c', border: '#7c2d12' },
+  medium: { bg: '#422006', text: '#fbbf24', border: '#713f12' },
+  low: { bg: '#064e3b', text: '#34d399', border: '#065f46' },
 };
 
 /**
