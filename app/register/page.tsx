@@ -19,6 +19,19 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Ensure page starts fresh on mount
+  React.useEffect(() => {
+    setFormData({
+      fullName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    });
+    setError('');
+    setLoading(false);
+    setSuccess(false);
+  }, []);
+
   const validate = () => {
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
       return MESSAGES.ERROR.REQUIRED_FIELDS;
@@ -85,7 +98,7 @@ export default function RegisterPage() {
           backgroundColor: THEME.SURFACE,
           borderColor: THEME.BORDER 
         }}
-        className="w-full max-w-md min-h-[95vh] p-8 rounded-xl border shadow-2xl transition-all duration-300 flex flex-col justify-between"
+        className="w-full max-w-md min-h-[95vh] p-8 rounded-xl border shadow-2xl flex flex-col justify-between"
       >
         <div className="text-center">
           <h1 

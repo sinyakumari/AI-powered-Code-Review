@@ -69,7 +69,7 @@ export default function LoginPage() {
           backgroundColor: THEME.SURFACE,
           borderColor: THEME.BORDER 
         }}
-        className="w-full max-w-md p-6 rounded-xl border shadow-2xl transition-all duration-300"
+        className="w-full max-w-md p-6 rounded-xl border shadow-2xl"
       >
         <div className="text-center mb-5">
           <h1 

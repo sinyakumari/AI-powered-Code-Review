@@ -58,6 +58,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           {[
             { 
+              id: 'paste',
               title: 'Paste Code', 
               subtitle: 'Directly analyze code snippets', 
               icon: (
@@ -67,6 +68,7 @@ export default function DashboardPage() {
               )
             },
             { 
+              id: 'upload',
               title: 'Upload Code', 
               subtitle: 'Select files from your local drive', 
               icon: (
@@ -76,6 +78,7 @@ export default function DashboardPage() {
               )
             },
             { 
+              id: 'github',
               title: 'Import from GitHub', 
               subtitle: 'Connect repositories directly', 
               icon: (
@@ -87,7 +90,7 @@ export default function DashboardPage() {
           ].map((card, i) => (
             <div 
               key={i}
-              onClick={() => router.push(ROUTES.REVIEW)}
+              onClick={() => router.push(`${ROUTES.REVIEW}?tab=${card.id}`)}
               style={{ backgroundColor: THEME.SURFACE, borderColor: THEME.BORDER }}
               className="p-8 rounded-2xl border hover:border-indigo-500/50 hover:shadow-xl hover:shadow-indigo-500/5 transition-all cursor-pointer group"
             >

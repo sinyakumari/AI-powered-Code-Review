@@ -156,6 +156,112 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "Review",
+			"item": [
+				{
+					"name": "Submit Code for Review",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"function add(a, b) {\\n    return a + b;\\n}\",\n    \"source\": \"paste\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/review",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review"
+							]
+						},
+						"description": "Submits code for AI analysis and saves results."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Review Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/review/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Fetches a specific review results and suggestions."
+					},
+					"response": []
+				},
+				{
+					"name": "Detect Language",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"print('hello world')\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/review/detect-language",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review",
+								"detect-language"
+							]
+						},
+						"description": "Identifies the programming language of a snippet."
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [

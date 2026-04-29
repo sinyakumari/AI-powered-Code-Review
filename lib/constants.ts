@@ -17,6 +17,8 @@ export const MESSAGES = {
     UNAUTHORIZED: "Unauthorized access",
     TOKEN_EXPIRED: "Token expired",
     TOKEN_INVALID: "Invalid token",
+    REVIEW_NOT_FOUND: "Review not found",
+    INVALID_SOURCE: "Invalid source type",
   },
 };
 
@@ -40,6 +42,29 @@ export const STATUS_CODES = {
 export const AUTH = {
   JWT_EXPIRY: "7d",
   BCRYPT_SALT_ROUNDS: 10,
+};
+
+export const REVIEW_STATUS = {
+  PENDING: 'pending',
+  FIXED: 'fixed',
+};
+
+export const SEVERITY = {
+  CRITICAL: 'critical',
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low',
+};
+
+export const SOURCE = {
+  PASTE: 'paste',
+  UPLOAD: 'upload',
+  GITHUB: 'github',
+};
+
+export const OPENAI = {
+  MODEL: 'llama-3.3-70b-versatile',
+  MAX_TOKENS: 2000,
 };
 
 /**
@@ -114,3 +139,23 @@ export const THEME = {
   TEXT_MUTED: '#c8c4d8',
   BORDER: '#2d3449',
 };
+
+export const EDITOR = {
+  MAX_CHARS: 10000,
+  DEBOUNCE_MS: 1000,
+  DRAFT_KEY: 'draft_code',
+  SAMPLE_CODE: `function calculateTotal(items) {
+  var total = 0;
+  for (var i = 0; i <= items.length; i++) {
+    total += items[i].price * items[i].qty;
+  }
+  eval("console.log(total)");
+  return total;
+}`
+}
+
+export const TABS = {
+  PASTE: 'paste',
+  UPLOAD: 'upload',
+  GITHUB: 'github',
+}
