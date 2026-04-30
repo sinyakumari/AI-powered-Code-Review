@@ -405,6 +405,193 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "History",
+			"item": [
+				{
+					"name": "Get Review History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/review/history?status=pending&language=javascript",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review",
+								"history"
+							],
+							"query": [
+								{
+									"key": "status",
+									"value": "pending"
+								},
+								{
+									"key": "language",
+									"value": "javascript"
+								}
+							]
+						},
+						"description": "Fetches review history with optional filters."
+					},
+					"response": [
+						{
+							"name": "Success",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"reviews\": [\n        {\n            \"review_id\": 1,\n            \"language\": \"javascript\",\n            \"status\": \"pending\",\n            \"source\": \"paste\",\n            \"created_at\": \"2023-10-01T12:00:00Z\",\n            \"total_suggestions\": 5,\n            \"accepted_suggestions\": 2\n        }\n    ],\n    \"total\": 1\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Specific Review",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/review/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Fetches a specific review results and suggestions."
+					},
+					"response": [
+						{
+							"name": "Success",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"review\": {\n        \"review_id\": 1,\n        \"original_code\": \"...\",\n        \"ai_reviewed_code\": \"...\",\n        \"language\": \"javascript\",\n        \"status\": \"pending\",\n        \"source\": \"paste\",\n        \"created_at\": \"2023-10-01T12:00:00Z\"\n    },\n    \"suggestions\": [\n        {\n            \"suggestion_id\": 1,\n            \"suggestion\": \"...\",\n            \"severity\": \"critical\",\n            \"suggested_code\": \"...\",\n            \"is_accepted\": 0,\n            \"status\": \"pending\",\n            \"created_at\": \"2023-10-01T12:00:05Z\"\n        }\n    ],\n    \"total_suggestions\": 1\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Review",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/review/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Deletes a specific review and its suggestions."
+					},
+					"response": [
+						{
+							"name": "Success",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Review deleted successfully\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Review Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"fixed\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/review/:id/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"review",
+								":id",
+								"status"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Updates the status of a specific review."
+					},
+					"response": [
+						{
+							"name": "Success",
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Review status updated successfully\"\n}"
+						}
+					]
+				}
+			]
 		}
 	],
 	"variable": [

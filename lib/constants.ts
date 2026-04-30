@@ -7,6 +7,8 @@ export const MESSAGES = {
     LOGGED_IN: "Login successful",
     SUGGESTION_ACCEPTED: "Suggestion accepted successfully",
     SUGGESTION_REJECTED: "Suggestion rejected",
+    REVIEW_DELETED: 'Review deleted successfully',
+    REVIEW_STATUS_UPDATED: 'Review status updated successfully',
   },
   ERROR: {
     REQUIRED_FIELDS: "All fields are required",
@@ -22,6 +24,8 @@ export const MESSAGES = {
     REVIEW_NOT_FOUND: "Review not found",
     INVALID_SOURCE: "Invalid source type",
     SUGGESTION_NOT_FOUND: "Suggestion not found",
+    HISTORY_FETCH_FAILED: 'Failed to fetch review history',
+    INVALID_STATUS: 'Invalid status value',
   },
 };
 
@@ -50,6 +54,7 @@ export const AUTH = {
 export const REVIEW_STATUS = {
   PENDING: 'pending',
   FIXED: 'fixed',
+  REJECTED: 'rejected',
 };
 
 export const SUGGESTION_STATUS = {
@@ -134,6 +139,9 @@ export const BADGE_COLORS = {
   high: { bg: '#431407', text: '#fb923c', border: '#7c2d12' },
   medium: { bg: '#422006', text: '#fbbf24', border: '#713f12' },
   low: { bg: '#064e3b', text: '#34d399', border: '#065f46' },
+  fixed: { bg: '#064e3b', text: '#34d399', border: '#065f46' },
+  pending: { bg: '#422006', text: '#fbbf24', border: '#713f12' },
+  rejected: { bg: '#450a0a', text: '#f87171', border: '#7f1d1d' },
 };
 
 /**
