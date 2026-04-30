@@ -5,6 +5,8 @@ export const MESSAGES = {
   SUCCESS: {
     REGISTERED: "User registered successfully",
     LOGGED_IN: "Login successful",
+    SUGGESTION_ACCEPTED: "Suggestion accepted successfully",
+    SUGGESTION_REJECTED: "Suggestion rejected",
   },
   ERROR: {
     REQUIRED_FIELDS: "All fields are required",
@@ -19,6 +21,7 @@ export const MESSAGES = {
     TOKEN_INVALID: "Invalid token",
     REVIEW_NOT_FOUND: "Review not found",
     INVALID_SOURCE: "Invalid source type",
+    SUGGESTION_NOT_FOUND: "Suggestion not found",
   },
 };
 
@@ -47,6 +50,12 @@ export const AUTH = {
 export const REVIEW_STATUS = {
   PENDING: 'pending',
   FIXED: 'fixed',
+};
+
+export const SUGGESTION_STATUS = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  REJECTED: 'rejected',
 };
 
 export const SEVERITY = {
@@ -158,4 +167,11 @@ export const TABS = {
   PASTE: 'paste',
   UPLOAD: 'upload',
   GITHUB: 'github',
+}
+
+export const DIFF = {
+  ACCEPT_MSG: 'Suggestion accepted! Great choice.',
+  REJECT_MSG: 'Suggestion rejected.',
+  ALL_REVIEWED: 'All suggestions reviewed!',
+  NO_SUGGESTIONS: 'No suggestions found for this review.',
 }
