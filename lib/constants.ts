@@ -182,4 +182,5 @@ export const DIFF = {
   REJECT_MSG: 'Suggestion rejected.',
   ALL_REVIEWED: 'All suggestions reviewed!',
   NO_SUGGESTIONS: 'No suggestions found for this review.',
+  BACK: '← Back',
 }
