@@ -38,16 +38,25 @@ export async function POST(
       [SUGGESTION_STATUS.ACCEPTED, suggestionId, id]
     );
 
-    // 3. Update review status to 'fixed'
-    await query(
-      'UPDATE reviews SET status = ? WHERE review_id = ?',
-      [REVIEW_STATUS.FIXED, id]
+    // 3. Update review status based on all suggestions
+    const suggestions: any[] = await query(
+      'SELECT is_accepted, status FROM suggestions WHERE review_id = ?',
+      [id]
     );
 
-    // 4. Reject ALL OTHER suggestions for this review
+    const hasAccepted = suggestions.some((s: any) => s.is_accepted === 1 || s.status === SUGGESTION_STATUS.ACCEPTED);
+    const allRejected = suggestions.length > 0 && suggestions.every((s: any) => s.status === SUGGESTION_STATUS.REJECTED);
+
+    let reviewStatus = REVIEW_STATUS.PENDING;
+    if (hasAccepted) {
+      reviewStatus = REVIEW_STATUS.FIXED;
+    } else if (allRejected) {
+      reviewStatus = REVIEW_STATUS.PENDING;
+    }
+
     await query(
-      'UPDATE suggestions SET is_accepted = 0, status = ? WHERE review_id = ? AND suggestion_id != ?',
-      [SUGGESTION_STATUS.REJECTED, id, suggestionId]
+      'UPDATE reviews SET status = ? WHERE review_id = ?',
+      [reviewStatus, id]
     );
 
     return NextResponse.json({

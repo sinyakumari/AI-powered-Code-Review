@@ -58,14 +58,8 @@ export default function DiffViewPage() {
 
         if (data.success) {
           setReview(data.review);
-          // Only show pending suggestions for navigation
           setSuggestions(data.suggestions);
-          
-          // Find first pending index in the full list
-          const firstPendingIdx = data.suggestions.findIndex((s: Suggestion) => s.status === 'pending');
-          if (firstPendingIdx !== -1) {
-            setCurrentIndex(firstPendingIdx);
-          }
+          setCurrentIndex(0);
         } else {
           showToast(data.message || MESSAGES.ERROR.SERVER_ERROR, 'error');
         }
@@ -107,8 +101,10 @@ export default function DiffViewPage() {
 
       if (data.success) {
         showToast(DIFF.ACCEPT_MSG, 'success');
-        // Accept means job done, redirect to dashboard as per rules
-        setTimeout(() => router.push(ROUTES.DASHBOARD), 1500);
+        const newSuggestions = [...suggestions];
+        newSuggestions[currentIndex].status = 'accepted';
+        newSuggestions[currentIndex].is_accepted = 1;
+        setSuggestions(newSuggestions);
       } else {
         showToast(data.message, 'error');
       }
@@ -133,25 +129,10 @@ export default function DiffViewPage() {
 
       if (data.success) {
         showToast(DIFF.REJECT_MSG, 'info');
-        
-        // Update local state
         const newSuggestions = [...suggestions];
         newSuggestions[currentIndex].status = 'rejected';
+        newSuggestions[currentIndex].is_accepted = 0;
         setSuggestions(newSuggestions);
-
-        if (data.all_rejected) {
-          showToast(DIFF.ALL_REVIEWED, 'success');
-          setTimeout(() => router.push(ROUTES.DASHBOARD), 1500);
-        } else {
-          // Find next pending
-          const nextPending = newSuggestions.findIndex((s, idx) => idx > currentIndex && s.status === 'pending');
-          if (nextPending !== -1) {
-            setCurrentIndex(nextPending);
-          } else {
-            const firstPending = newSuggestions.findIndex(s => s.status === 'pending');
-            if (firstPending !== -1) setCurrentIndex(firstPending);
-          }
-        }
       } else {
         showToast(data.message, 'error');
       }
@@ -170,17 +151,43 @@ export default function DiffViewPage() {
     const linesR = currentSuggestion.suggested_code.split('\n');
     const max = Math.max(linesL.length, linesR.length);
     
+    // Find which lines actually changed
+    // by comparing trimmed content
+    const changedRightLines = new Set(
+      linesR.map(l => l.trim()).filter(Boolean)
+    );
+    const changedLeftLines = new Set(
+      linesL
+        .filter(l => !linesR.some(
+          r => r.trim() === l.trim()
+        ))
+        .map(l => l.trim())
+        .filter(Boolean)
+    );
+
     const diff = [];
     for (let i = 0; i < max; i++) {
-      const left = linesL[i] !== undefined ? linesL[i] : null;
-      const right = linesR[i] !== undefined ? linesR[i] : null;
-      const changed = left !== right;
+      const left = linesL[i] !== undefined 
+        ? linesL[i] : null;
+      const right = linesR[i] !== undefined 
+        ? linesR[i] : null;
       
+      // Line is changed only if content differs
+      const leftChanged = left !== null && 
+        changedLeftLines.has(left.trim()) && 
+        left.trim() !== '';
+        
+      const rightChanged = right !== null && 
+        changedRightLines.has(right.trim()) && 
+        right.trim() !== '' &&
+        !linesL.some(l => l.trim() === right.trim());
+
       diff.push({
         num: i + 1,
         left,
         right,
-        changed
+        leftChanged,
+        rightChanged,
       });
     }
     return diff;
@@ -232,6 +239,12 @@ export default function DiffViewPage() {
       <Navbar />
 
       <main className="max-w-[1280px] mx-auto p-8 pt-6">
+        <button 
+          onClick={() => router.back()} 
+          className="text-slate-400 hover:text-white transition-colors mb-6 flex items-center gap-2 font-medium text-sm"
+        >
+          {DIFF.BACK || '← Back'}
+        </button>
         
         {/* 2. SUGGESTION CARD */}
         <section className="bg-[#131b2e] border border-slate-800 rounded-xl p-6 mb-8 shadow-2xl">
@@ -241,27 +254,29 @@ export default function DiffViewPage() {
                 label={currentSuggestion?.severity || 'medium'} 
                 variant={(currentSuggestion?.severity as any) || 'medium'} 
               />
-              <span className="text-[13px] font-semibold text-slate-400">
-                Suggestion {currentIndex + 1} of {totalCount}
-              </span>
             </div>
             
-            {/* Navigation Dots */}
-            <div className="flex gap-2">
-              {suggestions.map((s, idx) => (
-                <button
-                  key={s.suggestion_id}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    idx === currentIndex 
-                      ? 'bg-[#6d5bff] scale-125' 
-                      : s.status === 'pending' 
-                        ? 'bg-slate-600 hover:bg-slate-500' 
-                        : 'bg-slate-800 opacity-40'
-                  }`}
-                  title={s.suggestion}
-                />
-              ))}
+            {/* Arrow Navigation */}
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                disabled={currentIndex === 0}
+                className="text-xl text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                ←
+              </button>
+              
+              <span className="text-[14px] font-bold text-indigo-400">
+                Suggestion {currentIndex + 1} of {totalCount}
+              </span>
+              
+              <button 
+                onClick={() => setCurrentIndex(Math.min(totalCount - 1, currentIndex + 1))}
+                disabled={currentIndex === totalCount - 1}
+                className="text-xl text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                →
+              </button>
             </div>
           </div>
 
@@ -286,14 +301,57 @@ export default function DiffViewPage() {
         <section className="bg-[#111827] border border-slate-800 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-8">
           <div className="flex border-b border-slate-800 bg-[#131b2e]">
             {/* Left Header */}
-            <div className="flex-1 px-6 py-4 flex items-center gap-3 border-r border-slate-800">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
-              <span className="text-[11px] font-bold tracking-[0.15em] text-slate-400 uppercase font-poppins">ORIGINAL CODE</span>
+            <div style={{
+              flex: 1,
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              borderRight: '1px solid #1e293b',
+              overflow: 'visible',
+            }}>
+              <div style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: '#ef4444',
+                boxShadow: '0 0 10px #ef4444, 0 0 20px #ef444466',
+                flexShrink: 0,
+                marginLeft: 2,
+              }} />
+              <span style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.15em',
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+              }}>ORIGINAL CODE</span>
             </div>
             {/* Right Header */}
-            <div className="flex-1 px-6 py-4 flex items-center gap-3 bg-[#131b2e]">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#34d399] shadow-[0_0_10px_rgba(52,211,153,0.4)]" />
-              <span className="text-[11px] font-bold tracking-[0.15em] text-slate-400 uppercase font-poppins">AI SUGGESTION</span>
+            <div style={{
+              flex: 1,
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              overflow: 'visible',
+            }}>
+              <div style={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                background: '#34d399',
+                boxShadow: '0 0 10px #34d399, 0 0 20px #34d39966',
+                flexShrink: 0,
+                marginLeft: 2,
+              }} />
+              <span style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.15em',
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+              }}>AI SUGGESTION</span>
             </div>
           </div>
 
@@ -304,12 +362,13 @@ export default function DiffViewPage() {
                 {diffLines.map((line) => (
                   <div 
                     key={`l-${line.num}`} 
-                    className={`flex ${line.changed && line.left !== null ? 'bg-[#7f1d1d]/25' : ''}`}
+                    className="flex"
+                    style={line.leftChanged ? { backgroundColor: 'rgba(239, 68, 68, 0.15)' } : {}}
                   >
                     <div className="w-12 py-1 px-2 text-right text-slate-700 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
                       {line.left !== null ? line.num : ''}
                     </div>
-                    <pre className={`py-1 px-4 text-slate-300 ${line.changed && line.left !== null ? 'text-red-200' : ''}`}>
+                    <pre className="py-1 px-4" style={{ color: line.leftChanged ? '#fca5a5' : '#cbd5e1' }}>
                       {line.left !== null ? (line.left || ' ') : ''}
                     </pre>
                   </div>
@@ -323,12 +382,13 @@ export default function DiffViewPage() {
                 {diffLines.map((line) => (
                   <div 
                     key={`r-${line.num}`} 
-                    className={`flex ${line.changed && line.right !== null ? 'bg-[#064e3b]/30' : ''}`}
+                    className="flex"
+                    style={line.rightChanged ? { backgroundColor: 'rgba(52, 211, 153, 0.15)' } : {}}
                   >
                     <div className="w-12 py-1 px-2 text-right text-slate-700 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
                       {line.right !== null ? line.num : ''}
                     </div>
-                    <pre className={`py-1 px-4 text-slate-300 ${line.changed && line.right !== null ? 'text-emerald-100' : ''}`}>
+                    <pre className="py-1 px-4" style={{ color: line.rightChanged ? '#6ee7b7' : '#cbd5e1' }}>
                       {line.right !== null ? (line.right || ' ') : ''}
                     </pre>
                   </div>
@@ -361,28 +421,71 @@ export default function DiffViewPage() {
           </div>
 
           {/* Action Buttons Swapped and Polished */}
-          <div className="flex justify-end items-center gap-4">
-            <div className="w-40">
-              <button
-                onClick={handleReject}
-                disabled={actionLoading || currentSuggestion?.status !== 'pending'}
-                className="w-full h-[46px] flex items-center justify-center gap-2 rounded-xl border border-red-500/50 text-red-400 font-bold text-sm hover:bg-red-500/10 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {actionLoading ? (
-                  <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin-custom" />
-                ) : (
-                  <>✕ Reject</>
-                )}
-              </button>
-            </div>
-            <div className="w-60">
-              <Button 
-                label="✓ Accept Suggestion" 
-                onClick={handleAccept} 
-                loading={actionLoading}
-                disabled={currentSuggestion?.status !== 'pending'}
-              />
-            </div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 12,
+            marginTop: 24
+          }}>
+            {/* Reject Button */}
+            <button
+              onClick={handleReject}
+              disabled={actionLoading}
+              style={{
+                padding: '12px 32px',
+                height: 48,
+                borderRadius: 10,
+                border: '1px solid #474555',
+                background: currentSuggestion?.status === 'rejected'
+                  ? '#2d1f3d' : '#131b2e',
+                color: '#dae2fd',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: actionLoading ? 'not-allowed' : 'pointer',
+                opacity: actionLoading ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                whiteSpace: 'nowrap',
+                fontFamily: "'Poppins', sans-serif",
+                transition: 'all 0.2s',
+                minWidth: 120,
+              }}
+            >
+              ✕ Reject
+            </button>
+
+            {/* Accept Button */}
+            <button
+              onClick={handleAccept}
+              disabled={actionLoading}
+              style={{
+                padding: '12px 32px',
+                height: 48,
+                borderRadius: 10,
+                border: 'none',
+                background: currentSuggestion?.status === 'accepted'
+                  ? '#16a34a' : '#6d5bff',
+                color: '#ffffff',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: actionLoading ? 'not-allowed' : 'pointer',
+                opacity: actionLoading ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                whiteSpace: 'nowrap',
+                fontFamily: "'Poppins', sans-serif",
+                transition: 'all 0.2s',
+                minWidth: 180,
+                boxShadow: '0 4px 20px rgba(109,91,255,0.3)',
+              }}
+            >
+              ✓ Accept Suggestion
+            </button>
           </div>
         </section>
 
