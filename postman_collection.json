@@ -678,6 +678,227 @@
 					]
 				}
 			]
+		},
+		{
+			"name": "GitHub",
+			"item": [
+				{
+					"name": "GitHub Login - Initiate",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/github/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"github",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub Login - Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/github/login/callback?code=GITHUB_AUTH_CODE&state=GITHUB_STATE",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"github",
+								"login",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "GITHUB_AUTH_CODE"
+								},
+								{
+									"key": "state",
+									"value": "GITHUB_STATE"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub Import - Initiate",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/github",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"github"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub Import - Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/github/callback?code=GITHUB_AUTH_CODE&state=GITHUB_STATE",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"github",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "GITHUB_AUTH_CODE"
+								},
+								{
+									"key": "state",
+									"value": "GITHUB_STATE"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub - Get Repos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "x-github-token",
+								"value": "{{github_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/github/repos",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"github",
+								"repos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub - Get Repo Files",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "x-github-token",
+								"value": "{{github_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/github/repos/:owner/:repo/files?path=",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"github",
+								"repos",
+								":owner",
+								":repo",
+								"files"
+							],
+							"query": [
+								{
+									"key": "path",
+									"value": ""
+								}
+							],
+							"variable": [
+								{
+									"key": "owner",
+									"value": ""
+								},
+								{
+									"key": "repo",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub - Get File Content",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/github/file?url=https://raw.githubusercontent.com/owner/repo/main/file.js",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"github",
+								"file"
+							],
+							"query": [
+								{
+									"key": "url",
+									"value": "https://raw.githubusercontent.com/owner/repo/main/file.js"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [

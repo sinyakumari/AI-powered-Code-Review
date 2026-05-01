@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Toast from '@/components/ui/Toast';
-import { EDITOR, TABS, ROUTES } from '@/lib/constants';
+import { EDITOR, TABS, ROUTES, GITHUB } from '@/lib/constants';
 
 // ─── Stitch "Midnight Technical" Design Tokens ────────────────────────────────
 const T = {
@@ -31,23 +31,85 @@ function ReviewContent() {
 
   const [activeTab,        setActiveTab]        = useState(TABS.PASTE);
   const [code,             setCode]             = useState('');
+  const [codeSource,       setCodeSource]       = useState('paste');
   const [detectedLanguage, setDetectedLanguage] = useState('plaintext');
   const [isAnalyzing,      setIsAnalyzing]      = useState(false);
   const [fileName,         setFileName]         = useState('');
   const [toast,            setToast]            = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [githubToken,      setGithubToken]      = useState<string | null>(null);
+  const [repos,            setRepos]            = useState<any[]>([]);
+  const [selectedRepo,     setSelectedRepo]     = useState<any | null>(null);
+  const [files,            setFiles]            = useState<any[]>([]);
+  const [currentPath,      setCurrentPath]      = useState('');
+  const [githubLoading,    setGithubLoading]    = useState(false);
+  const [repoSearch,       setRepoSearch]       = useState('');
 
   const textAreaRef    = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const fileInputRef   = useRef<HTMLInputElement>(null);
   const debounceTimer  = useRef<NodeJS.Timeout | null>(null);
 
-  // ── FIX 2: Code not clearing on mount
+  // ── fetchRepos defined early so all effects below can reference it
+  const fetchRepos = useCallback(async (token: string) => {
+    setGithubLoading(true);
+    try {
+      const jwtToken = localStorage.getItem('token');
+      const res = await fetch('/api/github/repos', {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          'x-github-token': token,
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRepos(data.repos);
+      } else {
+        localStorage.removeItem('github_token');
+        setGithubToken(null);
+        setToast({ message: 'GitHub session expired. Please reconnect.', type: 'error' });
+      }
+    } catch {
+      setToast({ message: 'Failed to load repositories', type: 'error' });
+    } finally {
+      setGithubLoading(false);
+    }
+  }, []);
+
+  // ── On mount: clear editor + restore GitHub token + handle OAuth callback
   useEffect(() => {
     setCode('');
     setFileName('');
     setDetectedLanguage('plaintext');
     localStorage.removeItem(EDITOR.DRAFT_KEY);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const ghToken = urlParams.get('github_token');
+    const ghError = urlParams.get('error');
+
+    if (ghToken) {
+      // Fresh OAuth callback — save and use this token
+      localStorage.setItem('github_token', ghToken);
+      setGithubToken(ghToken);
+      window.history.replaceState({}, '', '/review?tab=github');
+    } else {
+      // Restore persisted token from localStorage
+      const saved = localStorage.getItem('github_token');
+      if (saved) {
+        setGithubToken(saved);
+      }
+    }
+
+    if (ghError === 'github_failed') {
+      setToast({ message: GITHUB.AUTH_FAILED, type: 'error' });
+    }
   }, []);
+
+  // ── Fetch repos when GitHub tab is active, token exists, repos not yet loaded
+  useEffect(() => {
+    if (activeTab === TABS.GITHUB && githubToken && repos.length === 0) {
+      fetchRepos(githubToken);
+    }
+  }, [activeTab, githubToken, repos.length]);
 
   // ── Auth guard
   useEffect(() => {
@@ -87,9 +149,14 @@ function ReviewContent() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [code, detectLanguage]);
 
+
   // ── Helpers
   const showToast       = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
-  const handleTrySample = () => { setCode(EDITOR.SAMPLE_CODE); showToast('Sample code loaded', 'info'); };
+  const handleTrySample = () => {
+    setCode(EDITOR.SAMPLE_CODE);
+    setActiveTab(TABS.PASTE);
+    showToast('Sample code loaded', 'info');
+  };
   const handleCopy      = () => { if (!code) return; navigator.clipboard.writeText(code); showToast('Copied!', 'success'); };
   const handleClear     = () => { setCode(''); setFileName(''); setDetectedLanguage('plaintext'); showToast('Editor cleared', 'info'); };
 
@@ -106,6 +173,7 @@ function ReviewContent() {
       const content = ev.target?.result as string;
       if (content.length > EDITOR.MAX_CHARS) { showToast('File too large (max 10,000 chars)', 'error'); return; }
       setCode(content);
+      setCodeSource('upload');
       setActiveTab(TABS.PASTE);
     };
     reader.readAsText(file);
@@ -122,7 +190,7 @@ function ReviewContent() {
       const res  = await fetch('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ code, source: activeTab === TABS.UPLOAD ? 'upload' : 'paste' }),
+        body: JSON.stringify({ code, source: codeSource }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -138,6 +206,69 @@ function ReviewContent() {
       setIsAnalyzing(false);
     }
   };
+
+
+
+  const fetchFiles = async (owner: string, repo: string, path: string = '') => {
+    setGithubLoading(true);
+    try {
+      const jwtToken = localStorage.getItem('token');
+      const res = await fetch(`/api/github/repos/${owner}/${repo}/files?path=${path}`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+          'x-github-token': githubToken!,
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFiles(data.files);
+        setCurrentPath(path);
+      }
+    } catch {
+      showToast('Failed to load files', 'error');
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  const handleFileImport = async (downloadUrl: string) => {
+    setGithubLoading(true);
+    try {
+      const jwtToken = localStorage.getItem('token');
+      const res = await fetch(`/api/github/file?url=${encodeURIComponent(downloadUrl)}`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCode(data.content);
+        setCodeSource('github');
+        setActiveTab(TABS.PASTE);
+        showToast(GITHUB.IMPORT_SUCCESS, 'success');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch {
+      showToast('Failed to import file', 'error');
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    localStorage.removeItem('github_token');
+    setGithubToken(null);
+    setRepos([]);
+    setFiles([]);
+    setSelectedRepo(null);
+    setCurrentPath('');
+  };
+
+  const filteredRepos = repos.filter(r =>
+    r.name.toLowerCase().includes(repoSearch.toLowerCase())
+  );
 
   const syncScroll = () => {
     if (textAreaRef.current && lineNumbersRef.current)
@@ -419,14 +550,75 @@ function ReviewContent() {
 
           {/* GitHub tab */}
           {activeTab === TABS.GITHUB && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-              <span className="msym" style={{ fontSize: 48, color: T.outline, marginBottom: 16, opacity: 0.4 }}>data_object</span>
-              <h3 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 18, color: T.outline, marginBottom: 8 }}>
-                GitHub integration coming soon
-              </h3>
-              <p style={{ color: T.outline, fontSize: 13, textAlign: 'center', maxWidth: 280, opacity: 0.7 }}>
-                We&apos;re working on direct GitHub repo imports. Stay tuned for seamless CI/CD integration!
-              </p>
+            <div style={{ width: '100%' }}>
+              {/* NOT CONNECTED */}
+              {!githubToken && (
+                <div style={{ height: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 16, background: '#222a3d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="32" height="32" fill="#c6c0ff" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: '#dae2fd', margin: 0 }}>{GITHUB.CONNECT_TITLE}</h3>
+                  <p style={{ fontSize: 13, color: '#928ea1', textAlign: 'center', maxWidth: 280, margin: 0 }}>{GITHUB.CONNECT_DESC}</p>
+                  <button onClick={() => { const t = localStorage.getItem('token'); window.location.href = `/api/auth/github?token=${t}`; }} style={{ marginTop: 8, padding: '12px 28px', background: '#6d5bff', color: '#ffffff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                    {GITHUB.CONNECT_BTN}
+                  </button>
+                </div>
+              )}
+
+              {/* CONNECTED — REPOS LIST */}
+              {githubToken && !selectedRepo && (
+                <div style={{ padding: 16, height: 380, overflowY: 'auto' }} className="stitch-scroll">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, color: '#dae2fd', margin: 0 }}>{GITHUB.REPOS_TITLE}</h3>
+                    <button onClick={handleDisconnect} style={{ fontSize: 12, color: '#928ea1', background: 'transparent', border: '1px solid #474555', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>{GITHUB.DISCONNECT}</button>
+                  </div>
+                  <input type="text" placeholder="Search repositories..." value={repoSearch} onChange={e => setRepoSearch(e.target.value)} style={{ width: '100%', padding: '8px 12px', background: '#060e20', border: '1px solid #474555', borderRadius: 8, color: '#dae2fd', fontSize: 13, marginBottom: 12, outline: 'none', boxSizing: 'border-box' }} />
+                  {githubLoading ? (
+                    <div style={{ textAlign: 'center', padding: 40, color: '#928ea1' }}>{GITHUB.LOADING_REPOS}</div>
+                  ) : (
+                    filteredRepos.map(repo => (
+                      <div key={repo.id} onClick={() => { setSelectedRepo(repo); fetchFiles(repo.owner.login, repo.name); }} style={{ padding: '12px 16px', background: '#0d1a2e', border: '1px solid #2d3449', borderRadius: 10, marginBottom: 8, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: '#c6c0ff' }}>{repo.name}</span>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {repo.language && <span style={{ fontSize: 11, padding: '2px 8px', background: '#222a3d', borderRadius: 4, color: '#a6e6ff' }}>{repo.language}</span>}
+                            <span style={{ fontSize: 11, padding: '2px 8px', background: '#222a3d', borderRadius: 4, color: '#928ea1' }}>{repo.private ? 'Private' : 'Public'}</span>
+                          </div>
+                        </div>
+                        {repo.description && <p style={{ fontSize: 12, color: '#928ea1', margin: '4px 0 0' }}>{repo.description}</p>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* CONNECTED — FILES LIST */}
+              {githubToken && selectedRepo && (
+                <div style={{ padding: 16, height: 380, overflowY: 'auto' }} className="stitch-scroll">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <button onClick={() => { setSelectedRepo(null); setFiles([]); setCurrentPath(''); }} style={{ background: 'transparent', border: 'none', color: '#6d5bff', cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: 0 }}>Repositories</button>
+                    <span style={{ color: '#928ea1' }}>/</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#dae2fd' }}>{selectedRepo.name}</span>
+                    {currentPath && <><span style={{ color: '#928ea1' }}>/</span><span style={{ fontSize: 13, color: '#928ea1' }}>{currentPath}</span></>}
+                  </div>
+                  {currentPath && (
+                    <button onClick={() => { const parts = currentPath.split('/'); parts.pop(); fetchFiles(selectedRepo.owner.login, selectedRepo.name, parts.join('/')); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0', background: 'transparent', border: 'none', color: '#928ea1', cursor: 'pointer', fontSize: 13, marginBottom: 8 }}>← Back</button>
+                  )}
+                  {githubLoading ? (
+                    <div style={{ textAlign: 'center', padding: 40, color: '#928ea1' }}>{GITHUB.LOADING_FILES}</div>
+                  ) : (
+                    files.map(file => (
+                      <div key={file.sha} onClick={() => { file.type === 'dir' ? fetchFiles(selectedRepo.owner.login, selectedRepo.name, file.path) : handleFileImport(file.download_url); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#0d1a2e', border: '1px solid #2d3449', borderRadius: 8, marginBottom: 6, cursor: 'pointer' }}>
+                        <span style={{ fontSize: 16, color: file.type === 'dir' ? '#fbbf24' : '#a6e6ff' }}>{file.type === 'dir' ? '📁' : '📄'}</span>
+                        <span style={{ fontSize: 13, color: '#dae2fd', flex: 1 }}>{file.name}</span>
+                        {file.type === 'file' && <span style={{ fontSize: 11, color: '#928ea1' }}>{file.size > 1024 ? `${(file.size / 1024).toFixed(1)}KB` : `${file.size}B`}</span>}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

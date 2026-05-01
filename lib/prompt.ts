@@ -19,6 +19,7 @@ Expected JSON Structure:
     {
       "description": "string",
       "severity": "critical|high|medium|low",
+      "original_snippet": "string (the exact code block to be replaced)",
       "suggested_code": "string",
       "line_number": number
     }

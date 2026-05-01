@@ -49,7 +49,20 @@ export async function reviewCode(code: string, language: string = 'auto'): Promi
   }
 
   const jsonStr = raw.substring(jsonStart, jsonEnd + 1);
-  return JSON.parse(jsonStr) as ReviewResponse;
+  try {
+    return JSON.parse(jsonStr) as ReviewResponse;
+  } catch (e) {
+    console.error('Groq JSON Parse Error. Raw content snippet:', raw.slice(0, 500));
+    // Attempt minor repair: replace literal newlines inside strings with \n
+    // This is a common issue with LLMs returning raw blocks
+    try {
+      const repaired = jsonStr.replace(/\n/g, '\\n').replace(/\r/g, '\\r')
+        .replace(/\\n(?=([^"]*"[^"]*")*[^"]*$)/g, '\n'); 
+      return JSON.parse(repaired) as ReviewResponse;
+    } catch (e2) {
+      throw new Error('AI returned invalid JSON format. Please try again.');
+    }
+  }
 }
 
 /**

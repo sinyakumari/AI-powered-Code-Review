@@ -214,7 +214,10 @@ export default function RegisterPage() {
               </svg>
               {UI.BUTTON_LABELS.GOOGLE}
             </button>
-            <button className="flex items-center justify-center gap-2 py-2 px-4 rounded bg-slate-900 border border-slate-700 text-white font-semibold text-xs hover:bg-slate-800 transition-colors">
+            <button 
+              onClick={() => { window.location.href = '/api/auth/github/login' }}
+              className="flex items-center justify-center gap-2 py-2 px-4 rounded bg-slate-900 border border-slate-700 text-white font-semibold text-xs hover:bg-slate-800 transition-colors"
+            >
               <span className="text-sm leading-none font-mono">&lt;&gt;</span>
               {UI.BUTTON_LABELS.GITHUB}
             </button>

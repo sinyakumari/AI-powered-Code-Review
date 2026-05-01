@@ -17,6 +17,8 @@ interface Suggestion {
   is_accepted: number;
   status: string;
   created_at: string;
+  line_number?: number;
+  original_snippet?: string;
 }
 
 interface Review {
@@ -145,51 +147,68 @@ export default function DiffViewPage() {
 
   // ─── Diff Rendering Logic ──────────────────────────────────────────────────
   const diffLines = useMemo(() => {
-    if (!review || !currentSuggestion) return [];
+    if (!review || !currentSuggestion) 
+      return [];
     
-    const linesL = review.original_code.split('\n');
-    const linesR = currentSuggestion.suggested_code.split('\n');
-    const max = Math.max(linesL.length, linesR.length);
+    const linesL = review.original_code
+      .split('\n');
+    const linesR = currentSuggestion
+      .suggested_code.split('\n');
     
-    // Find which lines actually changed
-    // by comparing trimmed content
-    const changedRightLines = new Set(
-      linesR.map(l => l.trim()).filter(Boolean)
-    );
-    const changedLeftLines = new Set(
-      linesL
-        .filter(l => !linesR.some(
-          r => r.trim() === l.trim()
-        ))
-        .map(l => l.trim())
-        .filter(Boolean)
-    );
+    // Find changed line indices
+    const changedIndices = new Set<number>();
+    let startIdx = (currentSuggestion.line_number || 1) - 1;
 
+    // Fuzzy match original_snippet if available
+    if (currentSuggestion.original_snippet) {
+      const snippetLines = currentSuggestion.original_snippet.split('\n').filter(l => l.trim()).map(l => l.trim());
+      if (snippetLines.length > 0) {
+        for (let i = 0; i <= linesL.length - snippetLines.length; i++) {
+          let match = true;
+          for (let j = 0; j < snippetLines.length; j++) {
+            if (linesL[i + j]?.trim() !== snippetLines[j]) {
+              match = false;
+              break;
+            }
+          }
+          if (match) {
+            startIdx = i;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Mark changed lines
+    for (let i = 0; i < linesR.length; i++) {
+      const idx = startIdx + i;
+      const l = linesL[idx]?.trim() ?? '';
+      const r = linesR[i]?.trim() ?? '';
+      if (l !== r) changedIndices.add(idx);
+    }
+
+    // Build diff for ALL lines
     const diff = [];
-    for (let i = 0; i < max; i++) {
-      const left = linesL[i] !== undefined 
-        ? linesL[i] : null;
-      const right = linesR[i] !== undefined 
-        ? linesR[i] : null;
+    for (let i = 0; i < linesL.length; i++) {
+      const left = linesL[i];
+      const right = (i >= startIdx && i < startIdx + linesR.length) 
+        ? linesR[i - startIdx] 
+        : null;
       
-      // Line is changed only if content differs
-      const leftChanged = left !== null && 
-        changedLeftLines.has(left.trim()) && 
-        left.trim() !== '';
-        
-      const rightChanged = right !== null && 
-        changedRightLines.has(right.trim()) && 
-        right.trim() !== '' &&
-        !linesL.some(l => l.trim() === right.trim());
-
+      const leftTrimmed = left?.trim() ?? '';
+      const rightTrimmed = right?.trim() ?? '';
+      const changed = leftTrimmed !== rightTrimmed;
+      
       diff.push({
         num: i + 1,
         left,
         right,
-        leftChanged,
-        rightChanged,
+        leftChanged: changed && left !== null && (i >= startIdx && i < startIdx + linesR.length),
+        rightChanged: changed && (i >= startIdx && i < startIdx + linesR.length),
+        isSeparator: false,
       });
     }
+    
     return diff;
   }, [review, currentSuggestion]);
 
@@ -247,8 +266,15 @@ export default function DiffViewPage() {
         </button>
         
         {/* 2. SUGGESTION CARD */}
-        <section className="bg-[#131b2e] border border-slate-800 rounded-xl p-6 mb-8 shadow-2xl">
-          <div className="flex items-center justify-between mb-6">
+        <section style={{
+          background: '#131b2e',
+          border: '1px solid #1e293b',
+          borderRadius: 12,
+          padding: '12px 16px',
+          marginBottom: 16,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+        }}>
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
               <Badge 
                 label={currentSuggestion?.severity || 'medium'} 
@@ -257,38 +283,38 @@ export default function DiffViewPage() {
             </div>
             
             {/* Arrow Navigation */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <button 
                 onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                 disabled={currentIndex === 0}
-                className="text-xl text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="text-base text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 ←
               </button>
               
-              <span className="text-[14px] font-bold text-indigo-400">
+              <span className="text-[12px] font-bold text-indigo-400">
                 Suggestion {currentIndex + 1} of {totalCount}
               </span>
               
               <button 
                 onClick={() => setCurrentIndex(Math.min(totalCount - 1, currentIndex + 1))}
                 disabled={currentIndex === totalCount - 1}
-                className="text-xl text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                className="text-base text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
                 →
               </button>
             </div>
           </div>
 
-          <div className="flex gap-5">
-            <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/20">
-              <span className="msym text-2xl text-indigo-400">shield</span>
+          <div className="flex gap-3">
+            <div className="w-8 h-8 bg-indigo-500/10 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/20">
+              <span className="msym text-lg text-indigo-400">shield</span>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white mb-1 leading-tight font-poppins">
+              <h3 className="text-sm font-bold text-white mb-1 leading-tight font-poppins">
                 {currentSuggestion?.suggestion.split(':')[0] || 'Code Improvement'}
               </h3>
-              <p className="text-slate-400 text-sm leading-relaxed max-w-3xl">
+              <p className="text-slate-400 text-xs leading-relaxed max-w-3xl">
                 {currentSuggestion?.suggestion.includes(':') 
                   ? currentSuggestion.suggestion.split(':').slice(1).join(':').trim() 
                   : currentSuggestion?.suggestion}
@@ -355,11 +381,33 @@ export default function DiffViewPage() {
             </div>
           </div>
 
-          <div className="flex min-h-[460px] font-mono text-[13px] bg-[#060e20]">
+          <div style={{
+            display: 'flex',
+            height: 320,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 13,
+            background: '#060e20',
+            overflow: 'hidden',
+          }}>
             {/* Left Column (Original) */}
-            <div className="flex-1 border-r border-slate-800/50">
-              <div className="overflow-x-auto stitch-scroll h-full">
-                {diffLines.map((line) => (
+            <div className="no-scrollbar" style={{
+              flex: 1,
+              borderRight: '1px solid #1e293b',
+              overflowY: 'auto',
+              overflowX: 'auto',
+            }}>
+              {diffLines.map((line, idx) => (
+                line.isSeparator ? (
+                  <div key={`sep-l-${idx}`} style={{
+                    background: '#1a2035',
+                    padding: '2px 16px',
+                    color: '#474555',
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  }}>
+                    ...
+                  </div>
+                ) : (
                   <div 
                     key={`l-${line.num}`} 
                     className="flex"
@@ -372,14 +420,28 @@ export default function DiffViewPage() {
                       {line.left !== null ? (line.left || ' ') : ''}
                     </pre>
                   </div>
-                ))}
-              </div>
+                )
+              ))}
             </div>
 
             {/* Right Column (Suggested) */}
-            <div className="flex-1">
-              <div className="overflow-x-auto stitch-scroll h-full">
-                {diffLines.map((line) => (
+            <div className="no-scrollbar" style={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'auto',
+            }}>
+              {diffLines.map((line, idx) => (
+                line.isSeparator ? (
+                  <div key={`sep-r-${idx}`} style={{
+                    background: '#1a2035',
+                    padding: '2px 16px',
+                    color: '#474555',
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  }}>
+                    ...
+                  </div>
+                ) : (
                   <div 
                     key={`r-${line.num}`} 
                     className="flex"
@@ -392,8 +454,8 @@ export default function DiffViewPage() {
                       {line.right !== null ? (line.right || ' ') : ''}
                     </pre>
                   </div>
-                ))}
-              </div>
+                )
+              ))}
             </div>
           </div>
         </section>
@@ -494,6 +556,8 @@ export default function DiffViewPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <style jsx>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .stitch-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .stitch-scroll::-webkit-scrollbar-track { background: #0b1326; }
         .stitch-scroll::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 3px; }

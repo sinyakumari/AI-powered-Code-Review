@@ -12,6 +12,8 @@ export const MESSAGES = {
     GOOGLE_LOGIN: 'Google login successful',
     GOOGLE_REGISTER: 'Account created with Google',
     PASSWORD_SET: 'Password set successfully',
+    GITHUB_LOGIN: 'GitHub login successful',
+    GITHUB_REGISTER: 'Account created with GitHub',
   },
   ERROR: {
     REQUIRED_FIELDS: "All fields are required",
@@ -31,6 +33,10 @@ export const MESSAGES = {
     INVALID_STATUS: 'Invalid status value',
     GOOGLE_AUTH_FAILED: 'Google authentication failed',
     GOOGLE_TOKEN_FAILED: 'Failed to get Google token',
+    GITHUB_AUTH_FAILED: 'GitHub authentication failed',
+    GITHUB_TOKEN_FAILED: 'Failed to get GitHub token',
+    GITHUB_FILE_TOO_LARGE: 'File too large for analysis',
+    GITHUB_FETCH_FAILED: 'Failed to fetch from GitHub',
     PASSWORD_REQUIRED: 'Password must be at least 8 characters',
     PASSWORD_MISMATCH: 'Passwords do not match',
   },
@@ -54,7 +60,7 @@ export const STATUS_CODES = {
  * Auth Constants
  */
 export const AUTH = {
-  JWT_EXPIRY: "7d",
+  JWT_EXPIRY: '7d' as const,
   BCRYPT_SALT_ROUNDS: 10,
 };
 
@@ -99,6 +105,8 @@ export const ROUTES = {
   HISTORY: '/history',
   AUTH_SUCCESS: '/auth/success',
   SET_PASSWORD: '/auth/set-password',
+  GITHUB_AUTH: '/api/auth/github',
+  GITHUB_LOGIN_AUTH: '/api/auth/github/login'
 };
 
 export const NAV_LINKS = [
@@ -193,3 +201,16 @@ export const DIFF = {
   NO_SUGGESTIONS: 'No suggestions found for this review.',
   BACK: '← Back',
 }
+
+export const GITHUB = {
+  AUTH_FAILED: 'GitHub authentication failed',
+  CONNECT_TITLE: 'Connect to GitHub',
+  CONNECT_DESC: 'Import your repositories and select files for deep AI analysis.',
+  CONNECT_BTN: 'Connect GitHub Account',
+  REPOS_TITLE: 'Select Repository',
+  DISCONNECT: 'Disconnect',
+  LOADING_REPOS: 'Fetching your repositories...',
+  LOADING_FILES: 'Loading repository contents...',
+  IMPORT_SUCCESS: 'File imported successfully!',
+  FILE_TOO_LARGE: 'File too large for analysis (max 10,000 characters)',
+};
