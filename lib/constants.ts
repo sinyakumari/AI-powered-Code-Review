@@ -9,6 +9,9 @@ export const MESSAGES = {
     SUGGESTION_REJECTED: "Suggestion rejected",
     REVIEW_DELETED: 'Review deleted successfully',
     REVIEW_STATUS_UPDATED: 'Review status updated successfully',
+    GOOGLE_LOGIN: 'Google login successful',
+    GOOGLE_REGISTER: 'Account created with Google',
+    PASSWORD_SET: 'Password set successfully',
   },
   ERROR: {
     REQUIRED_FIELDS: "All fields are required",
@@ -26,6 +29,10 @@ export const MESSAGES = {
     SUGGESTION_NOT_FOUND: "Suggestion not found",
     HISTORY_FETCH_FAILED: 'Failed to fetch review history',
     INVALID_STATUS: 'Invalid status value',
+    GOOGLE_AUTH_FAILED: 'Google authentication failed',
+    GOOGLE_TOKEN_FAILED: 'Failed to get Google token',
+    PASSWORD_REQUIRED: 'Password must be at least 8 characters',
+    PASSWORD_MISMATCH: 'Passwords do not match',
   },
 };
 
@@ -90,6 +97,8 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   REVIEW: '/review',
   HISTORY: '/history',
+  AUTH_SUCCESS: '/auth/success',
+  SET_PASSWORD: '/auth/set-password',
 };
 
 export const NAV_LINKS = [

@@ -154,6 +154,92 @@
 							"body": "{\n    \"success\": false,\n    \"message\": \"Invalid email or password\"\n}"
 						}
 					]
+				},
+				{
+					"name": "Google Auth Initiation",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/google",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"google"
+							]
+						},
+						"description": "Endpoint to initiate Google OAuth flow."
+					},
+					"response": []
+				},
+				{
+					"name": "Google Auth Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/google/callback?code=AUTH_CODE&state=STATE_VALUE",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"google",
+								"callback"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "AUTH_CODE"
+								},
+								{
+									"key": "state",
+									"value": "STATE_VALUE"
+								}
+							]
+						},
+						"description": "Endpoint for Google OAuth callback."
+					},
+					"response": []
+				},
+				{
+					"name": "Set Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"password\": \"newpassword123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/set-password",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"set-password"
+							]
+						},
+						"description": "Set a password for newly created Google users."
+					},
+					"response": []
 				}
 			]
 		},
