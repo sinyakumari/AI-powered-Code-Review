@@ -14,6 +14,7 @@ export const MESSAGES = {
     PASSWORD_SET: 'Password set successfully',
     GITHUB_LOGIN: 'GitHub login successful',
     GITHUB_REGISTER: 'Account created with GitHub',
+    PROFILE_UPDATED: 'Profile updated successfully',
   },
   ERROR: {
     REQUIRED_FIELDS: "All fields are required",
@@ -39,6 +40,9 @@ export const MESSAGES = {
     GITHUB_FETCH_FAILED: 'Failed to fetch from GitHub',
     PASSWORD_REQUIRED: 'Password must be at least 8 characters',
     PASSWORD_MISMATCH: 'Passwords do not match',
+    PROFILE_NOT_FOUND: 'Profile not found',
+    PROFILE_UPDATE_FAILED: 'Failed to update profile',
+    INVALID_INPUT: 'Invalid input provided',
   },
 };
 
@@ -106,13 +110,15 @@ export const ROUTES = {
   AUTH_SUCCESS: '/auth/success',
   SET_PASSWORD: '/auth/set-password',
   GITHUB_AUTH: '/api/auth/github',
-  GITHUB_LOGIN_AUTH: '/api/auth/github/login'
+  GITHUB_LOGIN_AUTH: '/api/auth/github/login',
+  PROFILE: '/profile',
 };
 
 export const NAV_LINKS = [
   { label: 'Dashboard', href: ROUTES.DASHBOARD },
   { label: 'Review', href: ROUTES.REVIEW },
   { label: 'History', href: ROUTES.HISTORY },
+  { label: 'Profile', href: ROUTES.PROFILE },
 ];
 
 /**
@@ -159,6 +165,7 @@ export const BADGE_COLORS = {
   fixed: { bg: '#064e3b', text: '#34d399', border: '#065f46' },
   pending: { bg: '#422006', text: '#fbbf24', border: '#713f12' },
   rejected: { bg: '#450a0a', text: '#f87171', border: '#7f1d1d' },
+  project: { bg: '#222a3d', text: '#a6e6ff', border: '#474555' },
 };
 
 /**
@@ -173,6 +180,25 @@ export const THEME = {
   TEXT_MUTED: '#c8c4d8',
   BORDER: '#2d3449',
 };
+
+/**
+ * Profile Design Tokens
+ */
+export const PROFILE_TOKENS = {
+  background: '#0b1326',
+  surface: '#131b2e',
+  surfaceHigh: '#222a3d',
+  surfaceHighest: '#2d3449',
+  primary: '#6d5bff',
+  primaryLight: '#c6c0ff',
+  onSurface: '#dae2fd',
+  onSurfaceVariant: '#c8c4d8',
+  outline: '#928ea1',
+  outlineVariant: '#474555',
+  secondary: '#a6e6ff',
+  success: '#34d399',
+};
+
 
 export const EDITOR = {
   MAX_CHARS: 10000,
@@ -213,4 +239,17 @@ export const GITHUB = {
   LOADING_FILES: 'Loading repository contents...',
   IMPORT_SUCCESS: 'File imported successfully!',
   FILE_TOO_LARGE: 'File too large for analysis (max 10,000 characters)',
+};
+
+export const PROFILE = {
+  EDIT_TITLE: 'Edit Profile',
+  SAVE_BTN: 'Save Changes',
+  CANCEL_BTN: 'Cancel',
+  CONNECT_GITHUB: 'Connect GitHub to see data',
+  NO_BIO: 'Add a bio',
+  NO_USERNAME: 'Set username',
+  CONTRIBUTION_TITLE: 'CONTRIBUTION MATRIX',
+  CONTRIBUTION_SUBTITLE: 'Activity and commits across the organization over the last year.',
+  TECH_STACK_TITLE: 'CORE TECH STACK',
+  PROJECTS_TITLE: 'ACTIVE PROJECTS',
 };

@@ -10,7 +10,8 @@ export async function GET() {
       throw new Error('GitHub OAuth credentials are not fully configured');
     }
 
-    const state = crypto.randomBytes(16).toString('hex');
+    const state = 'github_login_' + 
+      Math.random().toString(36).substring(7);
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -28,9 +29,10 @@ export async function GET() {
     // Set state in cookie for verification in callback
     response.cookies.set('github_oauth_state', state, {
       httpOnly: true,
+      maxAge: 600,
+      sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
       path: '/',
-      maxAge: 60 * 10, // 10 minutes
     });
 
     return response;

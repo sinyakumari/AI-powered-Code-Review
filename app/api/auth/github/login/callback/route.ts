@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { query } from '@/lib/db';
-import { AUTH } from '@/lib/constants';
+import { AUTH, ROUTES } from '@/lib/constants';
 
 export async function GET(req: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -81,73 +81,89 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (!email) {
-      throw new Error('GitHub account must have a verified email address');
-    }
+    // Step 1: Get GitHub user email
+    const githubEmail = githubUser.email || email;
+    const githubName = githubUser.name || githubUser.login;
+    const githubId = String(githubUser.id);
 
-    // Check DB
-    const checkSql = 'SELECT * FROM users WHERE email = ? OR github_id = ?';
-    const existingUsers: any[] = await query(checkSql, [email, githubUser.id.toString()]);
-    
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not defined');
+    let userId: number;
+    let userName: string;
+    let userEmail: string;
+    let isNewUser = false;
 
-    if (existingUsers.length > 0) {
-      // User exists
-      const user = existingUsers[0];
-      
-      // Update github_id if null
-      if (!user.github_id) {
-        await query('UPDATE users SET github_id = ? WHERE user_id = ?', [githubUser.id.toString(), user.user_id]);
-      }
+    // Step 2: Look up by github_id FIRST
+    const byGithubId: any[] = await query(
+      'SELECT user_id, name, email, github_id FROM users WHERE github_id = ?',
+      [githubId]
+    );
 
-      const token = jwt.sign(
-        { 
-          user_id: user.user_id, 
-          email: user.email,
-          name: user.name 
-        },
-        secret,
-        { expiresIn: AUTH.JWT_EXPIRY }
-      );
-
-      const encodedUser = encodeURIComponent(JSON.stringify({
-        user_id: user.user_id,
-        name: user.name,
-        email: user.email
-      }));
-
-      const response = NextResponse.redirect(new URL(`/auth/success?token=${token}&user=${encodedUser}`, baseUrl));
-      response.cookies.delete('github_oauth_state');
-      return response;
-      
+    if (byGithubId.length > 0) {
+      userId = byGithubId[0].user_id;
+      userName = byGithubId[0].name;
+      userEmail = byGithubId[0].email;
+      isNewUser = false;
     } else {
-      // New user
-      const insertSql = 'INSERT INTO users (name, email, github_id) VALUES (?, ?, ?)';
-      const insertResult: any = await query(insertSql, [githubUser.name || githubUser.login, email, githubUser.id.toString()]);
-      
-      const newUserId = insertResult.insertId;
-
-      const token = jwt.sign(
-        { 
-          user_id: newUserId, 
-          email: email,
-          name: githubUser.name || githubUser.login 
-        },
-        secret,
-        { expiresIn: AUTH.JWT_EXPIRY }
+      // Step 3: If NOT found by github_id, Look up by GitHub email
+      const byEmail: any[] = await query(
+        'SELECT user_id, name, email, github_id FROM users WHERE email = ?',
+        [githubEmail]
       );
 
-      const encodedUser = encodeURIComponent(JSON.stringify({
-        user_id: newUserId,
-        name: githubUser.name || githubUser.login,
-        email: email
-      }));
-
-      const response = NextResponse.redirect(new URL(`/auth/set-password?token=${token}&user=${encodedUser}`, baseUrl));
-      response.cookies.delete('github_oauth_state');
-      return response;
+      if (byEmail.length > 0) {
+        // Existing user with different auth - Link GitHub to this account
+        await query(
+          'UPDATE users SET github_id = ? WHERE user_id = ?',
+          [githubId, byEmail[0].user_id]
+        );
+        userId = byEmail[0].user_id;
+        userName = byEmail[0].name;
+        userEmail = byEmail[0].email;
+        isNewUser = false;
+      } else {
+        // Brand new user
+        const result: any = await query(
+          'INSERT INTO users (name, email, github_id) VALUES (?, ?, ?)',
+          [githubName, githubEmail, githubId]
+        );
+        userId = result.insertId;
+        userName = githubName;
+        userEmail = githubEmail;
+        isNewUser = true;
+      }
     }
+
+    // Step 4: Generate JWT with correct data
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET not defined');
+
+    const token = jwt.sign(
+      {
+        user_id: userId,
+        email: userEmail,
+        name: userName
+      },
+      secret,
+      { expiresIn: AUTH.JWT_EXPIRY }
+    );
+
+    // Step 5: Build correct redirect
+    const userPayload = {
+      user_id: userId,
+      name: userName,
+      email: userEmail
+    };
+
+    const redirectPath = isNewUser
+      ? ROUTES.SET_PASSWORD
+      : ROUTES.AUTH_SUCCESS;
+
+    const successUrl = new URL(redirectPath, req.url);
+    successUrl.searchParams.set('token', token);
+    successUrl.searchParams.set('user', JSON.stringify(userPayload));
+
+    const response = NextResponse.redirect(successUrl);
+    response.cookies.delete('github_oauth_state');
+    return response;
 
   } catch (error: any) {
     console.error('GitHub Callback API Error:', error.message);

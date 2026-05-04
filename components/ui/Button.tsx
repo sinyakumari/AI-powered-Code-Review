@@ -6,6 +6,8 @@ interface ButtonProps {
   type?: 'button' | 'submit' | 'reset';
   loading?: boolean;
   disabled?: boolean;
+  variant?: 'primary' | 'outline';
+  fullWidth?: boolean;
 }
 
 const Button: React.FC<ButtonProps> = ({ 
@@ -13,17 +15,24 @@ const Button: React.FC<ButtonProps> = ({
   onClick, 
   type = 'button', 
   loading = false, 
-  disabled = false 
+  disabled = false,
+  variant = 'primary',
+  fullWidth = false
 }) => {
+  const isOutline = variant === 'outline';
+  
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
       style={{
-        backgroundColor: disabled || loading ? `${THEME.PRIMARY}80` : THEME.PRIMARY,
+        backgroundColor: isOutline ? 'transparent' : (disabled || loading ? `${THEME.PRIMARY}80` : THEME.PRIMARY),
+        border: isOutline ? `1px solid ${THEME.PRIMARY}` : 'none',
+        color: isOutline ? THEME.PRIMARY : 'white',
+        width: fullWidth ? '100%' : 'auto'
       }}
-      className={`w-full py-2.5 px-4 rounded font-semibold text-white transition-all duration-200 
+      className={`py-2.5 px-4 rounded font-semibold transition-all duration-200 
         ${disabled || loading 
           ? 'cursor-not-allowed opacity-70' 
           : 'hover:brightness-110 active:transform active:scale-[0.98]'

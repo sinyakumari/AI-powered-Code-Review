@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
       owner: {
         login: repo.owner.login,
       },
+      html_url: repo.html_url,
     }));
 
     return NextResponse.json(

@@ -8,30 +8,42 @@ function AuthSuccessContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const userStr = searchParams.get('user');
+    const handleAuth = async () => {
+      const token = searchParams.get('token');
+      const userStr = searchParams.get('user');
 
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        
-        // Save to localStorage
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify({
-          user_id: user.user_id,
-          name: user.name,
-          email: user.email
-        }));
-        
-        // Redirect to dashboard
-        router.push('/dashboard');
-      } catch (err) {
-        console.error('Failed to parse user data:', err);
+      if (token && userStr) {
+        try {
+          const user = JSON.parse(userStr);
+          
+          // Clear any existing session first
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('github_token');
+
+          // Small delay to ensure clear
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Now save new session
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify({
+            user_id: user.user_id,
+            name: user.name,
+            email: user.email
+          }));
+          
+          // Redirect to dashboard
+          router.push('/dashboard');
+        } catch (err) {
+          console.error('Failed to parse user data:', err);
+          router.push('/login?error=auth_failed');
+        }
+      } else {
         router.push('/login?error=auth_failed');
       }
-    } else {
-      router.push('/login?error=auth_failed');
-    }
+    };
+
+    handleAuth();
   }, [router, searchParams]);
 
   return (

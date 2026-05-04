@@ -27,6 +27,7 @@ export default function Navbar() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('github_token');
     router.push(ROUTES.LOGIN);
   };
 
@@ -76,19 +77,19 @@ export default function Navbar() {
 
       {/* Right Side: User & Logout */}
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700">
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <Link href={ROUTES.PROFILE} className="flex items-center gap-2.5 group/user cursor-pointer">
+          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 transition-colors group-hover/user:border-indigo-500">
+            <svg className="w-4 h-4 text-slate-400 group-hover/user:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
           <span 
             style={{ color: THEME.TEXT }}
-            className="text-[13px] font-semibold"
+            className="text-[13px] font-semibold group-hover/user:text-white transition-colors"
           >
             {userName || 'Account'}
           </span>
-        </div>
+        </Link>
         
         <div className="w-[100px] scale-90 origin-right">
           <Button
