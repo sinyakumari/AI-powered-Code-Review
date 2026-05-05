@@ -3,8 +3,12 @@ import { verifyAuth, unauthorizedResponse } from '@/middleware/auth.middleware';
 import { MESSAGES, STATUS_CODES, EDITOR } from '@/lib/constants';
 
 const ALLOWED_EXTENSIONS = [
-  '.js', '.ts', '.py', '.java', '.cpp', '.c', 
-  '.cs', '.php', '.rb', '.go', '.jsx', '.tsx'
+  '.js', '.ts', '.py', '.java', '.cpp', '.c',
+  '.cs', '.php', '.rb', '.go', '.jsx', '.tsx',
+  '.html', '.css', '.json', '.xml', '.yaml',
+  '.yml', '.md', '.sh', '.swift', '.kt',
+  '.rs', '.vue', '.dart', '.scala', '.r',
+  '.m', '.h', '.sql', '.graphql'
 ];
 
 export async function GET(req: NextRequest) {

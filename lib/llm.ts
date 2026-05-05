@@ -1,6 +1,6 @@
 import Groq from 'groq-sdk';
 import { OPENAI } from './constants';
-import { CODE_REVIEW_PROMPT, LANGUAGE_DETECTION_PROMPT } from './prompt';
+import { CODE_REVIEW_PROMPT, LANGUAGE_DETECTION_PROMPT, CONTEXT_AWARE_REVIEW_PROMPT } from './prompt';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -22,16 +22,35 @@ export interface ReviewResponse {
 /**
  * Sends code to Groq for a full review.
  */
-export async function reviewCode(code: string, language: string = 'auto'): Promise<ReviewResponse> {
-  const prompt = CODE_REVIEW_PROMPT
-    .replace('{language}', language)
-    .replace('{code}', code);
+export async function reviewCode(
+  code: string, 
+  language: string = 'auto',
+  githubContext?: {
+    file_tree: string, package_json: string,
+    filename: string, repo_name: string
+  }
+): Promise<ReviewResponse> {
+  let prompt = '';
+  
+  if (githubContext) {
+    prompt = CONTEXT_AWARE_REVIEW_PROMPT
+      .replace('{repo_name}', githubContext.repo_name)
+      .replace('{filename}', githubContext.filename)
+      .replace('{package_json}', githubContext.package_json)
+      .replace('{file_tree}', githubContext.file_tree)
+      .replace('{code}', code);
+  } else {
+    prompt = CODE_REVIEW_PROMPT
+      .replace('{language}', language)
+      .replace('{code}', code);
+  }
 
   const response = await groq.chat.completions.create({
     model: OPENAI.MODEL,
     messages: [{ role: 'user', content: prompt }],
     max_tokens: OPENAI.MAX_TOKENS,
     temperature: 0.2,
+    response_format: { type: 'json_object' },
   });
 
   const content = response.choices[0].message.content;

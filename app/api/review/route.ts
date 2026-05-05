@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { code, source } = await req.json();
+    const { code, source, github_context } = await req.json();
 
     if (!code || !source) {
       return NextResponse.json(
@@ -37,21 +37,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Save initial review to DB (pending)
-    console.time('DB_INITIAL_SAVE');
     const reviewResult: any = await query(
       'INSERT INTO reviews (user_id, code, source, status) VALUES (?, ?, ?, ?)',
       [user.user_id, code, source, REVIEW_STATUS.PENDING]
     );
     const reviewId = reviewResult.insertId;
-    console.timeEnd('DB_INITIAL_SAVE');
 
-    // 2. Send code to OpenAI for review
-    console.time('AI_REVIEW_CALL');
-    const aiResponse = await reviewCode(code);
-    console.timeEnd('AI_REVIEW_CALL');
+    // 2. Send code to AI for review
+    const aiResponse = await reviewCode(code, 'auto', github_context);
 
     // 3. Update review with AI results
-    console.time('DB_UPDATE_FINAL');
     await query(
       'UPDATE reviews SET language = ?, ai_reviewed_code = ?, status = ? WHERE review_id = ?',
       [aiResponse.language, aiResponse.ai_reviewed_code, REVIEW_STATUS.FIXED, reviewId]
@@ -62,11 +57,17 @@ export async function POST(req: NextRequest) {
       for (const bug of aiResponse.bugs) {
         await query(
           'INSERT INTO suggestions (review_id, suggestion, severity, original_snippet, suggested_code, line_number) VALUES (?, ?, ?, ?, ?, ?)',
-          [reviewId, bug.description, bug.severity, bug.original_snippet, bug.suggested_code, bug.line_number]
+          [
+            reviewId,
+            bug.description || null,
+            bug.severity || 'medium',
+            bug.original_snippet ?? null,
+            bug.suggested_code || null,
+            bug.line_number ?? null
+          ]
         );
       }
     }
-    console.timeEnd('DB_UPDATE_FINAL');
 
     return NextResponse.json({
       success: true,

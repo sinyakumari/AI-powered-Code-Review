@@ -143,6 +143,7 @@ export default function LoginPage() {
               type="submit"
               loading={loading || isSubmitting}
               disabled={disabled}
+              fullWidth
             />
           </div>
         </form>

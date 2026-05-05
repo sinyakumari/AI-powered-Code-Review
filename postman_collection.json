@@ -1021,6 +1021,136 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "GitHub Advanced",
+			"item": [
+				{
+					"name": "Get Repo Tree",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "x-github-token",
+								"value": "{{github_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/github/repos/:owner/:repo/tree",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"github",
+								"repos",
+								":owner",
+								":repo",
+								"tree"
+							],
+							"variable": [
+								{
+									"key": "owner",
+									"value": "owner_name"
+								},
+								{
+									"key": "repo",
+									"value": "repo_name"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Package Info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "x-github-token",
+								"value": "{{github_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/github/repos/:owner/:repo/package",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"github",
+								"repos",
+								":owner",
+								":repo",
+								"package"
+							],
+							"variable": [
+								{
+									"key": "owner",
+									"value": "owner_name"
+								},
+								{
+									"key": "repo",
+									"value": "repo_name"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Commit Changes",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							},
+							{
+								"key": "x-github-token",
+								"value": "{{github_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"owner\": \"owner_name\",\n    \"repo\": \"repo_name\",\n    \"path\": \"src/index.js\",\n    \"content\": \"new file content...\",\n    \"branch_name\": \"ai-fix/review-1\",\n    \"commit_message\": \"AI Fix: Applied 5 suggestions from CodeRefine AI\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/github/commit",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"github",
+								"commit"
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [

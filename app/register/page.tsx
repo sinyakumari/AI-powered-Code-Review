@@ -185,6 +185,7 @@ export default function RegisterPage() {
               label={UI.BUTTON_LABELS.CREATE_ACCOUNT}
               type="submit"
               loading={loading}
+              fullWidth
             />
           </div>
         </form>

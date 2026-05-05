@@ -15,6 +15,7 @@ export const MESSAGES = {
     GITHUB_LOGIN: 'GitHub login successful',
     GITHUB_REGISTER: 'Account created with GitHub',
     PROFILE_UPDATED: 'Profile updated successfully',
+    GITHUB_COMMITTED: 'Changes committed to GitHub branch!',
   },
   ERROR: {
     REQUIRED_FIELDS: "All fields are required",
@@ -43,6 +44,9 @@ export const MESSAGES = {
     PROFILE_NOT_FOUND: 'Profile not found',
     PROFILE_UPDATE_FAILED: 'Failed to update profile',
     INVALID_INPUT: 'Invalid input provided',
+    GITHUB_TREE_FAILED: 'Failed to fetch project structure',
+    GITHUB_PACKAGE_FAILED: 'Failed to fetch package.json',
+    GITHUB_COMMIT_FAILED: 'Failed to commit to GitHub',
   },
 };
 
@@ -94,8 +98,8 @@ export const SOURCE = {
 };
 
 export const OPENAI = {
-  MODEL: 'llama-3.3-70b-versatile',
-  MAX_TOKENS: 2000,
+  MODEL: 'llama-3.1-8b-instant',
+  MAX_TOKENS: 4000,
 };
 
 /**
@@ -112,6 +116,7 @@ export const ROUTES = {
   GITHUB_AUTH: '/api/auth/github',
   GITHUB_LOGIN_AUTH: '/api/auth/github/login',
   PROFILE: '/profile',
+  FINAL: '/review/[id]/final',
 };
 
 export const NAV_LINKS = [
@@ -241,6 +246,20 @@ export const GITHUB = {
   FILE_TOO_LARGE: 'File too large for analysis (max 10,000 characters)',
 };
 
+export const GITHUB_SIDEBAR = {
+  CONNECT_TITLE: 'Connect GitHub Account',
+  CONNECT_DESC: 'Browse and import code directly from your repositories',
+  CONNECT_BTN: 'Connect with GitHub →',
+  REPOS_TITLE: 'Repositories',
+  DISCONNECT: 'Disconnect',
+  SEARCH_PLACEHOLDER: 'Search repositories...',
+  LOADING_REPOS: 'Loading repositories...',
+  LOADING_FILES: 'Loading files...',
+  IMPORT_SUCCESS: 'Code imported! Click Analyze to review.',
+  FILE_TOO_LARGE: 'File too large (max 10,000 characters)',
+  UNSUPPORTED_FILE: 'Unsupported file type',
+}
+
 export const PROFILE = {
   EDIT_TITLE: 'Edit Profile',
   SAVE_BTN: 'Save Changes',
@@ -252,4 +271,41 @@ export const PROFILE = {
   CONTRIBUTION_SUBTITLE: 'Activity and commits across the organization over the last year.',
   TECH_STACK_TITLE: 'CORE TECH STACK',
   PROJECTS_TITLE: 'ACTIVE PROJECTS',
+};
+
+export const FINAL_CODE = {
+  TITLE: 'Final Code',
+  SUBTITLE_TEMPLATE: '{accepted} of {total} suggestions applied',
+  COPY_BTN: 'Copy Code',
+  COMMIT_BTN: 'Commit to GitHub',
+  COMMIT_TITLE: 'Commit to GitHub',
+  COMMIT_SUCCESS: 'Changes committed successfully!',
+  VIEW_ON_GITHUB: 'View on GitHub →',
+  BACK_TO_REVIEW: '← Back to Review',
+  APPLIED_CHANGES: 'Applied Changes',
+  NO_ACCEPTED: 'No suggestions accepted yet.',
+};
+
+export const COMMIT = {
+  BRANCH_PREFIX: 'ai-fix/review-',
+  DEFAULT_MESSAGE_TEMPLATE: 'AI Fix: Applied {count} suggestions from CodeRefine AI',
+};
+
+export const DIFF_CHECKER = {
+  BUTTON_LABEL: 'Diff Checker',
+  EXIT_LABEL: 'Exit Diff',
+  MODE_SMART: 'Smart',
+  MODE_WORD: 'Word',
+  MODE_CHAR: 'Char',
+  HEADER_ORIGINAL: 'ORIGINAL TEXT',
+  HEADER_MODIFIED: 'MODIFIED TEXT',
+  LABEL_REMOVALS: 'removals',
+  LABEL_ADDITIONS: 'additions',
+  LABEL_LAST_COMPARED: 'Last compared: just now',
+  PLACEHOLDER_RIGHT: 'Paste modified code here to compare...',
+  COPY_TOOLTIP: 'Copy',
+  MERGE_LEFT: 'Merge change →',
+  MERGE_RIGHT: '← Merge change',
+  MERGED_TOAST: 'Code merged successfully!',
+  LINES_LABEL: 'LINES',
 };

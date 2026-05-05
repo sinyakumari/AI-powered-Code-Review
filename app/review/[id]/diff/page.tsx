@@ -152,8 +152,7 @@ export default function DiffViewPage() {
     
     const linesL = review.original_code
       .split('\n');
-    const linesR = currentSuggestion
-      .suggested_code.split('\n');
+    const linesR = (currentSuggestion.suggested_code || '').split('\n');
     
     // Find changed line indices
     const changedIndices = new Set<number>();
@@ -413,7 +412,7 @@ export default function DiffViewPage() {
                     className="flex"
                     style={line.leftChanged ? { backgroundColor: 'rgba(239, 68, 68, 0.15)' } : {}}
                   >
-                    <div className="w-12 py-1 px-2 text-right text-slate-700 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
+                    <div className="w-12 py-1 px-2 text-right text-slate-400 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
                       {line.left !== null ? line.num : ''}
                     </div>
                     <pre className="py-1 px-4" style={{ color: line.leftChanged ? '#fca5a5' : '#cbd5e1' }}>
@@ -447,7 +446,7 @@ export default function DiffViewPage() {
                     className="flex"
                     style={line.rightChanged ? { backgroundColor: 'rgba(52, 211, 153, 0.15)' } : {}}
                   >
-                    <div className="w-12 py-1 px-2 text-right text-slate-700 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
+                    <div className="w-12 py-1 px-2 text-right text-slate-400 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
                       {line.right !== null ? line.num : ''}
                     </div>
                     <pre className="py-1 px-4" style={{ color: line.rightChanged ? '#6ee7b7' : '#cbd5e1' }}>
@@ -475,11 +474,36 @@ export default function DiffViewPage() {
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full h-1.5 bg-slate-800 rounded-full mb-10 overflow-hidden">
+          <div className="w-full h-1.5 bg-slate-800 rounded-full mb-6 overflow-hidden">
             <div 
               className="h-full bg-indigo-500 rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
+          </div>
+
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              {suggestions.some(s => s.status === 'accepted') && (
+                <button
+                  onClick={() => router.push(`/review/${id}/final`)}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: 8,
+                    background: '#6d5bff20',
+                    border: '1px solid #6d5bff40',
+                    color: '#c6c0ff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#6d5bff33'; e.currentTarget.style.borderColor = '#6d5bff'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#6d5bff20'; e.currentTarget.style.borderColor = '#6d5bff40'; }}
+                >
+                  View Final Code →
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons Swapped and Polished */}

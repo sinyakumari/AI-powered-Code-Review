@@ -4,25 +4,9 @@ import jwt from 'jsonwebtoken';
 
 export async function GET(req: NextRequest) {
   try {
-    // Attempt to verify auth (header or query param)
-    const authHeader = req.headers.get('Authorization');
-    const queryToken = req.nextUrl.searchParams.get('token');
-    
-    let token = '';
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
-    } else if (queryToken) {
-      token = queryToken;
-    }
+    // JWT verification removed because this endpoint is called directly via window.location.href
+    // without an Authorization header. Initiating OAuth is safe to be public.
 
-    if (!token) {
-      throw new Error('Unauthorized');
-    }
-
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET is not defined');
-
-    jwt.verify(token, secret);
 
     const clientId = process.env.GITHUB_IMPORT_CLIENT_ID;
     const redirectUri = process.env.GITHUB_REDIRECT_URI;
