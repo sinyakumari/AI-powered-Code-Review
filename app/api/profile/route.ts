@@ -14,9 +14,8 @@ export async function GET(req: NextRequest) {
 
     const sql = `
       SELECT 
-        user_id, name, username, email,
-        bio, location, timezone,
-        currently_working_on, avatar_url,
+        user_id, name, email,
+        bio, location, timezone, avatar_url,
         github_id, google_id, created_at
       FROM users
       WHERE user_id = ?
@@ -57,7 +56,7 @@ export async function PUT(req: NextRequest) {
     if (!user) return unauthorizedResponse();
 
     const body = await req.json();
-    const { name, username, bio, location, timezone, currently_working_on, avatar_url } = body;
+    const { name, bio, location, timezone, avatar_url } = body;
 
     // Validation
     if (!name) {
@@ -67,33 +66,22 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    if (username && username.length > 50) {
-      return NextResponse.json(
-        { success: false, message: 'Username must be 50 characters or less' },
-        { status: STATUS_CODES.BAD_REQUEST }
-      );
-    }
-
     const sql = `
       UPDATE users 
       SET 
         name = ?, 
-        username = ?, 
         bio = ?, 
         location = ?, 
         timezone = ?, 
-        currently_working_on = ?, 
         avatar_url = ? 
       WHERE user_id = ?
     `;
     
     await query(sql, [
       name, 
-      username || null, 
       bio || null, 
       location || null, 
       timezone || null, 
-      currently_working_on || null, 
       avatar_url || null, 
       user.user_id
     ]);

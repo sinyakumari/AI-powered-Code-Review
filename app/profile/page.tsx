@@ -9,15 +9,18 @@ import Toast from '@/components/ui/Toast';
 import Badge from '@/components/ui/Badge';
 import { PROFILE_TOKENS as T, PROFILE, MESSAGES, STATUS_CODES } from '@/lib/constants';
 
+const COUNTRIES = [
+  "United States", "United Kingdom", "Canada", "Australia", "Germany", 
+  "France", "India", "Japan", "Brazil", "Netherlands", "Singapore", "Other"
+];
+
 interface UserProfile {
   user_id: string;
   name: string;
-  username: string | null;
   email: string;
   bio: string | null;
   location: string | null;
   timezone: string | null;
-  currently_working_on: string | null;
   avatar_url: string | null;
   github_id: string | null;
 }
@@ -50,11 +53,9 @@ const ProfilePage = () => {
   // Edit form state
   const [formData, setFormData] = useState({
     name: '',
-    username: '',
     bio: '',
     location: '',
-    timezone: '',
-    currently_working_on: ''
+    timezone: ''
   });
 
   useEffect(() => {
@@ -67,6 +68,17 @@ const ProfilePage = () => {
     fetchProfile(token);
   }, [router]);
 
+  useEffect(() => {
+    if (isEditing) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isEditing]);
+
   const fetchProfile = async (token: string) => {
     try {
       const res = await fetch('/api/profile', {
@@ -78,16 +90,14 @@ const ProfilePage = () => {
         setUser(data.user);
         setFormData({
           name: data.user.name || '',
-          username: data.user.username || '',
           bio: data.user.bio || '',
           location: data.user.location || '',
-          timezone: data.user.timezone || '',
-          currently_working_on: data.user.currently_working_on || ''
+          timezone: data.user.timezone || ''
         });
 
         const githubToken = localStorage.getItem('github_token');
         if (githubToken) {
-          fetchGithubData(githubToken);
+          await fetchGithubData(githubToken); // Wait for GitHub data too
         }
       } else {
         setToast({ message: data.message || MESSAGES.ERROR.PROFILE_NOT_FOUND, type: 'error' });
@@ -101,7 +111,11 @@ const ProfilePage = () => {
 
   const fetchGithubData = async (githubToken: string) => {
     try {
-      const headers = { 'x-github-token': githubToken };
+      const token = localStorage.getItem('token');
+      const headers = { 
+        'x-github-token': githubToken,
+        'Authorization': `Bearer ${token}`
+      };
       
       const [langRes, repoRes, contribRes] = await Promise.all([
         fetch('/api/github/languages', { headers }),
@@ -115,12 +129,32 @@ const ProfilePage = () => {
         contribRes.json()
       ]);
 
-      if (langData.success) setLanguages(langData.languages);
-      if (repoData.success) setRepos(repoData.repos.slice(0, 3));
+      if (langData.success) {
+        setLanguages(langData.languages);
+      }
+      if (repoData.success) {
+        const sortedRepos = repoData.repos.sort((a: any, b: any) => 
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
+        setRepos(sortedRepos.slice(0, 3));
+      }
       if (contribData.success) setContributions(contribData.contributions);
     } catch (error) {
       console.error('Failed to fetch GitHub data:', error);
     }
+  };
+
+  const handleProjectClick = (repo: any) => {
+    if (repo.html_url === '#') return; // Don't redirect for placeholder repos
+
+    // Persist state for the Review page to pick up
+    localStorage.setItem('review_selected_repo', JSON.stringify(repo));
+    localStorage.setItem('review_active_tab', 'github');
+    localStorage.removeItem('review_current_path'); // Start at root of repo
+    localStorage.removeItem('review_code');         // Clear any old code
+    localStorage.removeItem('review_imported_file'); 
+    
+    router.push('/review?tab=github');
   };
 
   const handleSave = async () => {
@@ -161,10 +195,13 @@ const ProfilePage = () => {
   const renderContributionMatrix = () => {
     const githubToken = localStorage.getItem('github_token');
     
-    // If not connected, show placeholder
-    const displayData = githubToken && contributions.length > 0 
+    // If connected but no data yet, show empty blocks. If not connected, show demo data.
+    const displayData = (githubToken && contributions.length > 0) 
       ? contributions 
-      : Array.from({ length: 364 }, (_, i) => ({ count: Math.floor(Math.random() * 2) }));
+      : (githubToken 
+          ? Array.from({ length: 364 }, () => ({ count: 0, date: '' }))
+          : Array.from({ length: 364 }, () => ({ count: Math.floor(Math.random() * 2) }))
+        );
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(52, 1fr)', gap: '2px' }}>
@@ -183,22 +220,15 @@ const ProfilePage = () => {
     );
   };
 
-  if (isLoading) {
-    return <div className="h-screen w-full flex items-center justify-center" style={{ background: T.background, color: T.onSurface }}>Loading Profile...</div>;
-  }
-
   return (
-    <div style={{ background: T.background, height: '100vh', color: T.onSurface, fontFamily: 'Poppins, sans-serif', overflow: 'hidden' }}>
+    <div style={{ background: T.background, minHeight: '100vh', color: T.onSurface, fontFamily: 'Poppins, sans-serif' }}>
       <Navbar />
       
       <main style={{ 
         padding: '16px',
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gridTemplateRows: '1.2fr 1fr auto',
-        gap: '16px',
-        height: 'calc(100vh - 64px - 32px)',
-        overflow: 'hidden'
+        gap: '16px'
       }}>
         
         {/* LEFT CARD — Profile Info */}
@@ -210,8 +240,7 @@ const ProfilePage = () => {
           gridRow: '1 / span 2',
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
-          overflow: 'hidden'
+          gap: '16px'
         }}>
           {/* AVATAR */}
           <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
@@ -233,38 +262,28 @@ const ProfilePage = () => {
           </div>
 
           <div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: 'white' }}>{user?.name || 'Alexander Vance'}</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'white' }}>{user?.name || ''}</div>
             <div style={{ fontSize: '14px', color: T.outline }}>
-              {user?.username ? `@${user.username}` : '@dev_alexander'}
+              {user?.email || ''}
             </div>
           </div>
 
-          <div style={{ fontSize: '13px', color: T.onSurfaceVariant, lineHeight: '1.6' }}>
-            {user?.bio || 'Principal Security Engineer and Core Contributor to MidnightCode. Specializing in LLM-assisted vulnerability detection and high-performance rust backends.'}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-            <div style={{ fontSize: '9px', letterSpacing: '0.1em', color: T.outline, textTransform: 'uppercase' }}>
-              CURRENTLY WORKING ON
-            </div>
-            <div style={{ 
-              fontSize: '11px', fontWeight: 600, padding: '4px 10px', 
-              background: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', 
-              borderRadius: '9999px', border: '1px solid rgba(139, 92, 246, 0.2)' 
-            }}>
-              {user?.currently_working_on || 'midnight-core-engine'}
-            </div>
+          <div style={{ fontSize: '13px', color: T.onSurfaceVariant, lineHeight: '1.6', minHeight: '40px' }}>
+            {user?.bio || (isLoading ? 'Loading bio...' : '')}
           </div>
 
           <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: T.onSurfaceVariant }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📍 {user?.location || 'San Francisco, CA'}</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>🕐 {user?.timezone || 'UTC-8'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📍 {user?.location || '---'}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>🕐 {user?.timezone || '--:--'}</span>
           </div>
 
           <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
-            <Button onClick={() => setIsEditing(true)} variant="outline" fullWidth>
-              ✏ Edit Profile
-            </Button>
+            <Button 
+              label="✏ Edit Profile"
+              onClick={() => setIsEditing(true)} 
+              variant="outline" 
+              fullWidth 
+            />
           </div>
         </div>
 
@@ -275,8 +294,7 @@ const ProfilePage = () => {
           borderRadius: '16px',
           padding: '20px',
           display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
+          flexDirection: 'column'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <span style={{ color: '#a78bfa', fontSize: '16px' }}>{'{ }'}</span>
@@ -287,10 +305,16 @@ const ProfilePage = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {(() => {
-              const displayLanguages = languages.length > 0 ? languages.slice(0, 3) : [
-                { name: 'Rust', percentage: 94 },
-                { name: 'TypeScript', percentage: 88 },
-                { name: 'Python', percentage: 72 }
+              const hasGithub = typeof window !== 'undefined' && !!localStorage.getItem('github_token');
+              
+              if (hasGithub && languages.length === 0) {
+                return <div style={{ fontSize: '12px', color: T.outline, padding: '20px 0' }}>Updating tech stack...</div>;
+              }
+
+              const displayLanguages = (hasGithub && languages.length > 0) ? languages.slice(0, 3) : [
+                { name: 'JavaScript', percentage: 92 },
+                { name: 'Python', percentage: 85 },
+                { name: 'React', percentage: 78 }
               ];
 
               return displayLanguages.map((lang) => (
@@ -317,8 +341,7 @@ const ProfilePage = () => {
           borderRadius: '16px',
           padding: '20px',
           display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
+          flexDirection: 'column'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <span style={{ fontSize: '16px' }}>📁</span>
@@ -329,28 +352,32 @@ const ProfilePage = () => {
 
           <div>
             {(() => {
-              const displayRepos = repos.length > 0 ? repos.slice(0, 2) : [
-                { name: 'midnight-core', html_url: '#' },
-                { name: 'ai-diff-engine', html_url: '#' }
+              const hasGithub = typeof window !== 'undefined' && !!localStorage.getItem('github_token');
+              
+              if (hasGithub && repos.length === 0) {
+                return <div style={{ fontSize: '12px', color: T.outline, padding: '20px 0' }}>Fetching repositories...</div>;
+              }
+
+              const displayRepos = (hasGithub && repos.length > 0) ? repos.slice(0, 2) : [
+                { name: 'portfolio-v2', html_url: '#' },
+                { name: 'ai-code-reviewer', html_url: '#' }
               ];
 
               return displayRepos.map((repo) => (
-                <a 
+                <div 
                   key={repo.name} 
-                  href={repo.html_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
+                  onClick={() => handleProjectClick(repo)}
                   style={{ 
                     background: T.surfaceHigh, borderRadius: '8px', padding: '10px 14px', marginBottom: '8px',
                     display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit',
-                    border: `1px solid transparent`, transition: 'border 0.2s'
+                    border: `1px solid transparent`, transition: 'border 0.2s', cursor: 'pointer'
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.border = `1px solid ${T.outlineVariant}`}
                   onMouseLeave={(e) => e.currentTarget.style.border = `1px solid transparent`}
                 >
                   <span style={{ color: T.outline }}>📁</span>
                   <span style={{ fontSize: '13px', color: 'white', fontWeight: 500 }}>{repo.name}</span>
-                </a>
+                </div>
               ));
             })()}
           </div>
@@ -395,10 +422,14 @@ const ProfilePage = () => {
           background: 'rgba(0,0,0,0.7)', position: 'fixed', inset: 0, zIndex: 50, 
           display: 'flex', alignItems: 'center', justifyContent: 'center' 
         }}>
-          <div style={{ 
-            background: T.surface, border: `1px solid ${T.outlineVariant}`, borderRadius: '16px',
-            padding: '32px', width: '480px', maxHeight: '80vh', overflowY: 'auto'
-          }}>
+          <div 
+            className="no-scrollbar"
+            style={{ 
+              background: T.surface, border: `1px solid ${T.outlineVariant}`, borderRadius: '16px',
+              padding: '32px', width: '480px', maxHeight: '80vh', overflowY: 'auto',
+              scrollBehavior: 'smooth'
+            }}
+          >
             <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '24px', color: T.onSurface }}>{PROFILE.EDIT_TITLE}</h2>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -408,12 +439,7 @@ const ProfilePage = () => {
                 onChange={(e) => setFormData({...formData, name: e.target.value})} 
                 placeholder="Your name"
               />
-              <Input 
-                label="Username" 
-                value={formData.username} 
-                onChange={(e) => setFormData({...formData, username: e.target.value})} 
-                placeholder="username"
-              />
+              
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '12px', color: T.outline }}>Bio</label>
                 <textarea 
@@ -426,33 +452,48 @@ const ProfilePage = () => {
                   }}
                 />
               </div>
-              <Input 
-                label="Location" 
-                value={formData.location} 
-                onChange={(e) => setFormData({...formData, location: e.target.value})} 
-                placeholder="e.g. San Francisco, CA"
-              />
-              <Input 
-                label="Timezone" 
-                value={formData.timezone} 
-                onChange={(e) => setFormData({...formData, timezone: e.target.value})} 
-                placeholder="e.g. UTC-8"
-              />
-              <Input 
-                label="Currently Working On" 
-                value={formData.currently_working_on} 
-                onChange={(e) => setFormData({...formData, currently_working_on: e.target.value})} 
-                placeholder="Project name"
-              />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', color: T.outline }}>Country</label>
+                <select 
+                  value={formData.location} 
+                  onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  style={{ 
+                    background: T.surfaceHigh, border: `1px solid ${T.outlineVariant}`, borderRadius: '8px',
+                    padding: '12px', color: T.onSurface, fontSize: '14px', outline: 'none'
+                  }}
+                >
+                  <option value="">Select a country</option>
+                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', color: T.outline }}>Local Time</label>
+                <input 
+                  type="time"
+                  value={formData.timezone} 
+                  onChange={(e) => setFormData({...formData, timezone: e.target.value})}
+                  style={{ 
+                    background: T.surfaceHigh, border: `1px solid ${T.outlineVariant}`, borderRadius: '8px',
+                    padding: '12px', color: T.onSurface, fontSize: '14px', outline: 'none'
+                  }}
+                />
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-              <Button onClick={() => setIsEditing(false)} variant="outline" fullWidth>
-                {PROFILE.CANCEL_BTN}
-              </Button>
-              <Button onClick={handleSave} fullWidth>
-                {PROFILE.SAVE_BTN}
-              </Button>
+              <Button 
+                label={PROFILE.CANCEL_BTN}
+                onClick={() => setIsEditing(false)} 
+                variant="outline" 
+                fullWidth 
+              />
+              <Button 
+                label={PROFILE.SAVE_BTN}
+                onClick={handleSave} 
+                fullWidth 
+              />
             </div>
           </div>
         </div>
@@ -471,6 +512,13 @@ const ProfilePage = () => {
         body {
           margin: 0;
           font-family: 'Poppins', sans-serif;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>

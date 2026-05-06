@@ -125,14 +125,17 @@ function ReviewContent() {
     }
   }, []);
 
-  const fetchFiles = async (owner: string, repo: string, path: string = '') => {
+  const fetchFiles = async (owner: string, repo: string, path: string = '', tokenOverride?: string) => {
     setGithubLoading(true);
     try {
+      const activeToken = tokenOverride || githubToken;
+      if (!activeToken) return;
+
       const jwtToken = localStorage.getItem('token');
       const res = await fetch(`/api/github/repos/${owner}/${repo}/files?path=${path}`, {
         headers: {
           'Authorization': `Bearer ${jwtToken}`,
-          'x-github-token': githubToken!,
+          'x-github-token': activeToken,
         }
       });
       const data = await res.json();
@@ -154,12 +157,15 @@ function ReviewContent() {
     }
   };
 
-  const fetchProjectContext = async (owner: string, repo: string) => {
+  const fetchProjectContext = async (owner: string, repo: string, tokenOverride?: string) => {
     try {
+      const activeToken = tokenOverride || githubToken;
+      if (!activeToken) return;
+
       const jwtToken = localStorage.getItem('token');
       const headers = {
         'Authorization': `Bearer ${jwtToken}`,
-        'x-github-token': githubToken!,
+        'x-github-token': activeToken,
       };
 
       // Fetch Tree and Package.json in parallel
@@ -267,33 +273,95 @@ function ReviewContent() {
     setImportedFile(null);
   };
 
-  // ── On Page Load ──
+  // ── State Persistence (Save) ──
+  useEffect(() => {
+    if (code) localStorage.setItem('review_code', code);
+    else localStorage.removeItem('review_code');
+  }, [code]);
+
+  useEffect(() => {
+    localStorage.setItem('review_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedRepo) localStorage.setItem('review_selected_repo', JSON.stringify(selectedRepo));
+    else localStorage.removeItem('review_selected_repo');
+  }, [selectedRepo]);
+
+  useEffect(() => {
+    localStorage.setItem('review_current_path', currentPath);
+  }, [currentPath]);
+
+  useEffect(() => {
+    if (importedFile) localStorage.setItem('review_imported_file', JSON.stringify(importedFile));
+    else localStorage.removeItem('review_imported_file');
+  }, [importedFile]);
+
+  useEffect(() => {
+    if (projectContext) localStorage.setItem('review_project_context', JSON.stringify(projectContext));
+    else localStorage.removeItem('review_project_context');
+  }, [projectContext]);
+
+  // ── On Page Load (Restore) ──
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const ghToken = urlParams.get('github_token');
+    
+    // Restore Code
+    const savedCode = localStorage.getItem('review_code');
+    if (savedCode) setCode(savedCode);
+
+    // Restore Tab (URL param takes precedence)
+    const tabParam = urlParams.get('tab');
+    if (tabParam && Object.values(TABS).includes(tabParam as any)) {
+      setActiveTab(tabParam as any);
+    } else {
+      const savedTab = localStorage.getItem('review_active_tab');
+      if (savedTab && Object.values(TABS).includes(savedTab as any)) {
+        setActiveTab(savedTab as any);
+      }
+    }
+
+    // Restore GitHub Data
     if (ghToken) {
       setGithubToken(ghToken);
       localStorage.setItem('github_token', ghToken);
-      window.history.replaceState({}, '', '/review?tab=github');
+      window.history.replaceState({}, '', `/review${tabParam ? `?tab=${tabParam}` : ''}`);
       fetchRepos(ghToken);
     } else {
       const saved = localStorage.getItem('github_token');
       if (saved) {
         setGithubToken(saved);
         fetchRepos(saved);
+        
+        // Restore Repo and Path
+        const savedRepo = localStorage.getItem('review_selected_repo');
+        const savedPath = localStorage.getItem('review_current_path') || '';
+        const savedFile = localStorage.getItem('review_imported_file');
+        const savedCtx = localStorage.getItem('review_project_context');
+
+        if (savedRepo) {
+          try {
+            const repo = JSON.parse(savedRepo);
+            setSelectedRepo(repo);
+            // Fetch both files and context immediately
+            fetchFiles(repo.owner.login, repo.name, savedPath, saved); 
+            fetchProjectContext(repo.owner.login, repo.name, saved);
+          } catch (e) {
+            console.error("Failed to parse saved repo", e);
+          }
+        }
+        if (savedFile) setImportedFile(JSON.parse(savedFile));
+        if (savedCtx) setProjectContext(JSON.parse(savedCtx));
       }
     }
   }, [fetchRepos]);
 
-  // ── Auth guard & Tab selection ──
+  // ── Auth guard ──
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { router.push(ROUTES.LOGIN); return; }
-    const tabParam = searchParams.get('tab');
-    if (tabParam && Object.values(TABS).includes(tabParam as any)) {
-      setActiveTab(tabParam as any);
-    }
-  }, [router, searchParams]);
+  }, [router]);
 
   // ── Language Detection ──
   const detectLanguage = useCallback(async (snippet: string) => {
