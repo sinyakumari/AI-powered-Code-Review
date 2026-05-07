@@ -4,16 +4,23 @@ import mysql from 'mysql2/promise';
  * MySQL Connection Configuration
  * Uses environment variables from .env.local
  */
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: parseInt(process.env.DB_PORT || '3306'),
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+let pool: mysql.Pool | null = null;
+
+function getPool() {
+  if (!pool) {
+    pool = mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      port: parseInt(process.env.DB_PORT || '3306'),
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+    });
+  }
+  return pool;
+}
 
 /**
  * Reusable Query Function
@@ -23,7 +30,7 @@ const pool = mysql.createPool({
  */
 export async function query<T>(sql: string, params?: any[]): Promise<T> {
   try {
-    const [results] = await pool.execute(sql, params);
+    const [results] = await getPool().execute(sql, params);
     return results as T;
   } catch (error: any) {
     console.error('Database Query Error:', error.message);
@@ -31,4 +38,5 @@ export async function query<T>(sql: string, params?: any[]): Promise<T> {
   }
 }
 
-export default pool;
+export { getPool as pool };
+export default getPool;
