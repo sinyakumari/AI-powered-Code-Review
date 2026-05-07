@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
       client_id: clientId,
       redirect_uri: redirectUri,
       scope: 'repo read:user',
-      response_type: 'code',
       state: state,
     });
 

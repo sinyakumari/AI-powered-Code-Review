@@ -20,9 +20,7 @@ export async function GET(req: NextRequest) {
       client_id: clientId,
       redirect_uri: dynamicRedirectUri,
       scope: 'user:email read:user',
-      response_type: 'code',
       state: state,
-      prompt: 'login',
     });
 
     const githubAuthUrl = `https://github.com/login/oauth/authorize?${params.toString()}`;
