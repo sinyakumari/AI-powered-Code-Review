@@ -18,9 +18,9 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.GITHUB_IMPORT_CLIENT_ID;
     const clientSecret = process.env.GITHUB_IMPORT_CLIENT_SECRET;
-    const redirectUri = process.env.GITHUB_REDIRECT_URI;
+    const dynamicRedirectUri = `${protocol}://${host}/api/auth/github/callback`;
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    if (!clientId || !clientSecret) {
       throw new Error('GitHub OAuth credentials are not fully configured');
     }
 
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: dynamicRedirectUri,
       }),
     });
 
