@@ -7,8 +7,7 @@ import Groq from 'groq-sdk';
 let _groq: Groq | null = null;
 function getGroq(): Groq {
   if (!_groq) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error('GROQ_API_KEY environment variable is not set.');
+    const apiKey = process.env.GROQ_API_KEY || 'MISSING_KEY';
     _groq = new Groq({ apiKey });
   }
   return _groq;
