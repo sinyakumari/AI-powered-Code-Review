@@ -4,7 +4,9 @@ import { query } from '@/lib/db';
 import { AUTH, ROUTES } from '@/lib/constants';
 
 export async function GET(req: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const host = req.headers.get('host');
+  const protocol = host?.includes('localhost') ? 'http' : 'https';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
   
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -19,9 +21,9 @@ export async function GET(req: NextRequest) {
 
     const clientId = process.env.GITHUB_CLIENT_ID;
     const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-    const redirectUri = process.env.GITHUB_LOGIN_REDIRECT_URI;
+    const dynamicRedirectUri = `${baseUrl}/api/auth/github/login/callback`;
 
-    if (!clientId || !clientSecret || !redirectUri) {
+    if (!clientId || !clientSecret) {
       throw new Error('GitHub OAuth credentials are not fully configured');
     }
 
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
         client_id: clientId,
         client_secret: clientSecret,
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: dynamicRedirectUri,
       }),
     });
 

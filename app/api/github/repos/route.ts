@@ -13,25 +13,33 @@ export async function GET(req: NextRequest) {
     const githubToken = req.headers.get('x-github-token');
     
     if (!githubToken) {
+      console.error('GitHub Repos API: Missing x-github-token header');
       return NextResponse.json(
-        { success: false, message: MESSAGES.ERROR.GITHUB_TOKEN_FAILED },
+        { success: false, message: 'GitHub authentication token is missing. Please reconnect your account.' },
         { status: STATUS_CODES.BAD_REQUEST }
       );
     }
 
     const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=100', {
       headers: {
-        Authorization: `Bearer ${githubToken}`,
+        Authorization: `token ${githubToken}`, // GitHub specifically prefers 'token' or 'Bearer'
         Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'CodeRefine-AI-App' // GitHub API requires a User-Agent header
       },
     });
 
     if (!response.ok) {
       const ghError = await response.json().catch(() => ({}));
-      console.error('GitHub API rejected token:', response.status, ghError);
+      console.error('GitHub API Response Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: ghError
+      });
+      
+      const errorMessage = ghError.message || 'GitHub API rejected the request.';
       return NextResponse.json(
-        { success: false, message: 'GitHub token is invalid or expired. Please reconnect.' },
-        { status: STATUS_CODES.UNAUTHORIZED }
+        { success: false, message: `GitHub Error: ${errorMessage}` },
+        { status: response.status === 401 ? STATUS_CODES.UNAUTHORIZED : response.status }
       );
     }
 

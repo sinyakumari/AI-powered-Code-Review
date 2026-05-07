@@ -102,7 +102,10 @@ function ReviewContent() {
 
   // ── Functions ──
   const fetchRepos = useCallback(async (gToken: string) => {
-    if (!token) return; // Prevent 401 by waiting for JWT hydration
+    if (!token || !gToken) {
+      console.warn('GitHub Fetch: Missing tokens', { hasJwt: !!token, hasGh: !!gToken });
+      return;
+    }
     
     setGithubLoading(true);
     try {
@@ -112,18 +115,22 @@ function ReviewContent() {
           'x-github-token': gToken
         }
       });
+      
       const data = await res.json();
+      
       if (data.success) {
         setRepos(data.repos);
       } else {
+        console.error('GitHub API Error:', data.message);
         // Only clear if the GitHub token specifically is invalid
-        if (res.status === 401 && data.message?.toLowerCase().includes('github')) {
+        if (res.status === 401 || data.message?.toLowerCase().includes('github')) {
           setGithubToken(null);
-          showToast('GitHub session expired. Please reconnect.', 'error');
+          showToast(data.message || 'GitHub session expired. Please reconnect.', 'error');
         }
       }
-    } catch {
-      showToast('Failed to load repositories', 'error');
+    } catch (err: any) {
+      console.error('GitHub Fetch Exception:', err);
+      showToast('Failed to connect to GitHub', 'error');
     } finally {
       setGithubLoading(false);
     }

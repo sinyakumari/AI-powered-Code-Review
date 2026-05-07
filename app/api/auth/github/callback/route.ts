@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const host = req.headers.get('host');
+  const protocol = host?.includes('localhost') ? 'http' : 'https';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
   
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -52,6 +54,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error: any) {
     console.error('GitHub Repo Callback API Error:', error.message);
-    return NextResponse.redirect(new URL('/review?error=github_failed&tab=github', baseUrl));
+    const errorMessage = encodeURIComponent(error.message || 'unknown_error');
+    return NextResponse.redirect(new URL(`/review?error=github_failed&details=${errorMessage}&tab=github`, baseUrl));
   }
 }

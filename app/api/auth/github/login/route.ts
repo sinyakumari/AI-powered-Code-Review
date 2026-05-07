@@ -1,13 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const clientId = process.env.GITHUB_CLIENT_ID;
-    const redirectUri = process.env.GITHUB_LOGIN_REDIRECT_URI;
+    
+    const host = req.headers.get('host');
+    const protocol = host?.includes('localhost') ? 'http' : 'https';
+    const dynamicRedirectUri = `${protocol}://${host}/api/auth/github/login/callback`;
 
-    if (!clientId || !redirectUri) {
-      throw new Error('GitHub OAuth credentials are not fully configured');
+    if (!clientId) {
+      throw new Error('GitHub Client ID is not configured');
     }
 
     const state = 'github_login_' + 
@@ -15,7 +18,7 @@ export async function GET() {
 
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: redirectUri,
+      redirect_uri: dynamicRedirectUri,
       scope: 'user:email read:user',
       response_type: 'code',
       state: state,

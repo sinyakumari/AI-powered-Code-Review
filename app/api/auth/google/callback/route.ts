@@ -118,8 +118,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(successUrl);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google Auth Callback Error:', error);
-    return NextResponse.redirect(new URL('/login?error=google_failed', request.url));
+    const errorMessage = encodeURIComponent(error.message || 'unknown_error');
+    return NextResponse.redirect(new URL(`/login?error=google_failed&details=${errorMessage}`, request.url));
   }
 }
