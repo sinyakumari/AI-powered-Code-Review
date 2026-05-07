@@ -130,7 +130,7 @@ const ProfilePage = () => {
       ? contributions 
       : (githubToken 
           ? Array.from({ length: 364 }, () => ({ count: 0, date: '' }))
-          : Array.from({ length: 364 }, () => ({ count: Math.floor(Math.random() * 2) }))
+          : Array.from({ length: 364 }, () => ({ count: Math.floor(Math.random() * 2), date: '' }))
         );
 
     return (

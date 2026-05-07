@@ -23,6 +23,8 @@ const T = {
   secondary: '#a6e6ff',
   success: '#34d399',
   border: '#2d3449',
+  muted: '#928ea1',
+  text: '#dae2fd',
 };
 
 function ReviewContent() {

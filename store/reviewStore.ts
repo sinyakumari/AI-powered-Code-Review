@@ -11,6 +11,8 @@ interface Review {
   accepted_bugs: number;
   rejected_bugs: number;
   pending_bugs: number;
+  severity?: string;
+  suggestion?: string;
 }
 
 interface Pagination {

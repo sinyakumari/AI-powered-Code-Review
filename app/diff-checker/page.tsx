@@ -88,7 +88,7 @@ interface EditorPanelProps {
   onScroll: (e: React.UIEvent<HTMLTextAreaElement>) => void;
   placeholder: string;
   highlightType: 'removed' | 'added';
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }
 function EditorPanel({ lines, value, onChange, onScroll, placeholder, highlightType, textareaRef }: EditorPanelProps) {
   const highlightColor = highlightType === 'removed' ? T.removedBg : T.addedBg;

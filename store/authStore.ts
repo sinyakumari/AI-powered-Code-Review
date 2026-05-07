@@ -7,6 +7,9 @@ interface User {
   email: string;
   avatar_url?: string;
   github_id?: string;
+  bio?: string;
+  location?: string;
+  timezone?: string;
 }
 
 interface AuthState {

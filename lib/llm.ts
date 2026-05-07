@@ -11,6 +11,7 @@ export interface ReviewBug {
   severity: 'critical' | 'high' | 'medium' | 'low';
   suggested_code: string;
   line_number: number;
+  original_snippet?: string;
 }
 
 export interface ReviewResponse {
