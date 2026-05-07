@@ -2,9 +2,17 @@ import Groq from 'groq-sdk';
 import { OPENAI } from './constants';
 import { CODE_REVIEW_PROMPT, LANGUAGE_DETECTION_PROMPT, CONTEXT_AWARE_REVIEW_PROMPT } from './prompt';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+let _groq: Groq | null = null;
+function getGroq(): Groq {
+  if (!_groq) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      throw new Error('GROQ_API_KEY environment variable is not set.');
+    }
+    _groq = new Groq({ apiKey });
+  }
+  return _groq;
+}
 
 export interface ReviewBug {
   description: string;
@@ -46,7 +54,7 @@ export async function reviewCode(
       .replace('{code}', code);
   }
 
-  const response = await groq.chat.completions.create({
+  const response = await getGroq().chat.completions.create({
     model: OPENAI.MODEL,
     messages: [{ role: 'user', content: prompt }],
     max_tokens: OPENAI.MAX_TOKENS,
@@ -91,7 +99,7 @@ export async function reviewCode(
 export async function detectLanguage(code: string): Promise<string> {
   const prompt = LANGUAGE_DETECTION_PROMPT.replace('{code}', code);
 
-  const response = await groq.chat.completions.create({
+  const response = await getGroq().chat.completions.create({
     model: OPENAI.MODEL,
     messages: [{ role: 'user', content: prompt }],
     max_tokens: 50,

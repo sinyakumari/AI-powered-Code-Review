@@ -4,7 +4,15 @@ import { query } from '@/lib/db';
 import { MESSAGES, STATUS_CODES } from '@/lib/constants';
 import Groq from 'groq-sdk';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+let _groq: Groq | null = null;
+function getGroq(): Groq {
+  if (!_groq) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error('GROQ_API_KEY environment variable is not set.');
+    _groq = new Groq({ apiKey });
+  }
+  return _groq;
+}
 
 export async function GET(
   req: NextRequest,
@@ -60,7 +68,7 @@ ${fixesList}
 Return ONLY the complete fixed code:`;
 
     // 4. Ask AI to apply fixes
-    const response = await groq.chat.completions.create({
+    const response = await getGroq().chat.completions.create({
       model: 'llama-3.1-8b-instant',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 4000,
