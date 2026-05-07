@@ -63,10 +63,13 @@ export async function GET(req: NextRequest) {
     }
 
     const githubUser = await userResponse.json();
+    console.log('GitHub User Info Fetched:', githubUser.login);
+    
     let email = githubUser.email;
 
     // If email is null, fetch primary email
     if (!email) {
+      console.log('Email not public, fetching from /user/emails...');
       const emailsResponse = await fetch('https://api.github.com/user/emails', {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -76,17 +79,20 @@ export async function GET(req: NextRequest) {
 
       if (emailsResponse.ok) {
         const emails = await emailsResponse.json();
-        const primaryEmail = emails.find((e: any) => e.primary && e.verified);
+        const primaryEmail = emails.find((e: any) => e.primary) || emails[0];
         if (primaryEmail) {
           email = primaryEmail.email;
+          console.log('Found primary/first email:', email);
         }
       }
     }
 
-    // Step 1: Get GitHub user email
-    const githubEmail = githubUser.email || email;
+    // Fallback if still no email
+    const githubEmail = email || `${githubUser.login}@users.noreply.github.com`;
     const githubName = githubUser.name || githubUser.login;
     const githubId = String(githubUser.id);
+
+    console.log('Processing User:', { githubId, githubEmail });
 
     let userId: number;
     let userName: string;
@@ -100,18 +106,21 @@ export async function GET(req: NextRequest) {
     );
 
     if (byGithubId.length > 0) {
+      console.log('Existing user found by GitHub ID');
       userId = byGithubId[0].user_id;
       userName = byGithubId[0].name;
       userEmail = byGithubId[0].email;
       isNewUser = false;
     } else {
       // Step 3: If NOT found by github_id, Look up by GitHub email
+      console.log('Searching by email:', githubEmail);
       const byEmail: any[] = await query(
         'SELECT user_id, name, email, github_id FROM users WHERE email = ?',
         [githubEmail]
       );
 
       if (byEmail.length > 0) {
+        console.log('Existing user found by Email, linking GitHub ID');
         // Existing user with different auth - Link GitHub to this account
         await query(
           'UPDATE users SET github_id = ? WHERE user_id = ?',
@@ -122,6 +131,7 @@ export async function GET(req: NextRequest) {
         userEmail = byEmail[0].email;
         isNewUser = false;
       } else {
+        console.log('Creating brand new user account');
         // Brand new user
         const result: any = await query(
           'INSERT INTO users (name, email, github_id) VALUES (?, ?, ?)',
