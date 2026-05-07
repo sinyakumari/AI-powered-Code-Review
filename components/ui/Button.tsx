@@ -8,6 +8,7 @@ interface ButtonProps {
   disabled?: boolean;
   variant?: 'primary' | 'outline';
   fullWidth?: boolean;
+  size?: 'sm' | 'md';
 }
 
 const Button: React.FC<ButtonProps> = ({ 
@@ -17,9 +18,11 @@ const Button: React.FC<ButtonProps> = ({
   loading = false, 
   disabled = false,
   variant = 'primary',
-  fullWidth = false
+  fullWidth = false,
+  size = 'md'
 }) => {
   const isOutline = variant === 'outline';
+  const isSmall = size === 'sm';
   
   return (
     <button
@@ -30,9 +33,11 @@ const Button: React.FC<ButtonProps> = ({
         backgroundColor: isOutline ? 'transparent' : (disabled || loading ? `${THEME.PRIMARY}80` : THEME.PRIMARY),
         border: isOutline ? `1px solid ${THEME.PRIMARY}` : 'none',
         color: isOutline ? THEME.PRIMARY : 'white',
-        width: fullWidth ? '100%' : 'auto'
+        width: fullWidth ? '100%' : 'auto',
+        padding: isSmall ? '6px 12px' : '10px 16px',
+        fontSize: isSmall ? '12px' : '14px',
       }}
-      className={`py-2.5 px-4 rounded font-semibold transition-all duration-200 
+      className={`rounded font-semibold transition-all duration-200 
         ${disabled || loading 
           ? 'cursor-not-allowed opacity-70' 
           : 'hover:brightness-110 active:transform active:scale-[0.98]'

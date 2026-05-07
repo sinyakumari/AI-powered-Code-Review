@@ -22,9 +22,36 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
     const language = searchParams.get('language');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const offset = (page - 1) * limit;
 
-    // 4. Build dynamic query
-    let sql = `
+    // 4. Build dynamic query for data
+    let baseSql = `
+      FROM suggestions s
+      JOIN reviews r ON s.review_id = r.review_id
+      WHERE r.user_id = ?
+    `;
+    const params: any[] = [user_id];
+
+    if (status) {
+      baseSql += ` AND LOWER(s.status) = LOWER(?)`;
+      params.push(status);
+    }
+
+    if (language) {
+      baseSql += ` AND LOWER(r.language) = LOWER(?)`;
+      params.push(language);
+    }
+
+    // 5. Get total count for pagination
+    const countSql = `SELECT COUNT(*) as count ${baseSql}`;
+    const countResult = await query<any[]>(countSql, params);
+    const totalItems = countResult[0]?.count || 0;
+    const totalPages = Math.ceil(totalItems / limit);
+
+    // 6. Get paginated data
+    const dataSql = `
       SELECT 
         s.suggestion_id,
         s.suggestion,
@@ -34,33 +61,24 @@ export async function GET(req: NextRequest) {
         s.created_at,
         r.review_id,
         r.language
-      FROM suggestions s
-      JOIN reviews r ON s.review_id = r.review_id
-      WHERE r.user_id = ?
+      ${baseSql}
+      ORDER BY s.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    const params: any[] = [user_id];
+    
+    const suggestions = await query<any[]>(dataSql, params);
 
-    if (status) {
-      sql += ` AND s.status = ?`;
-      params.push(status);
-    }
-
-    if (language) {
-      sql += ` AND r.language = ?`;
-      params.push(language);
-    }
-
-    sql += ` ORDER BY s.created_at DESC`;
-
-    // 5. Execute query
-    const suggestions = await query<any[]>(sql, params);
-
-    // 6. Return response
+    // 7. Return response
     return NextResponse.json(
       {
         success: true,
         suggestions,
-        total: suggestions.length
+        pagination: {
+          total: totalItems,
+          totalPages,
+          currentPage: page,
+          limit
+        }
       },
       { status: STATUS_CODES.OK }
     );

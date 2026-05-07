@@ -3,17 +3,19 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
 import { MESSAGES, ROUTES, THEME } from '@/lib/constants';
+import { useAuthStore } from '@/store/authStore';
 
 function SetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setAuth } = useAuthStore();
+  
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState('');
+  const [localToken, setLocalToken] = useState('');
 
   useEffect(() => {
     const urlToken = searchParams.get('token');
@@ -22,13 +24,10 @@ function SetPasswordContent() {
     if (urlToken && userStr) {
       try {
         const user = JSON.parse(userStr);
-        localStorage.setItem('token', urlToken);
-        localStorage.setItem('user', JSON.stringify({
-          user_id: user.user_id,
-          name: user.name,
-          email: user.email
-        }));
-        setToken(urlToken);
+        
+        // Sync with Zustand store
+        setAuth(user, urlToken);
+        setLocalToken(urlToken);
       } catch (err) {
         console.error('Failed to parse user data:', err);
         router.push('/login?error=auth_failed');
@@ -36,7 +35,7 @@ function SetPasswordContent() {
     } else {
       router.push('/login?error=auth_failed');
     }
-  }, [router, searchParams]);
+  }, [router, searchParams, setAuth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +57,7 @@ function SetPasswordContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${localToken}`
         },
         body: JSON.stringify({ password }),
       });
@@ -77,7 +76,7 @@ function SetPasswordContent() {
     }
   };
 
-  if (!token) {
+  if (!localToken) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#0b1326] text-[#dae2fd]" style={{ fontFamily: 'Poppins, sans-serif' }}>
         <div className="w-12 h-12 border-4 border-[#2d3449] border-t-[#6d5bff] rounded-full animate-spin mb-4"></div>
@@ -146,11 +145,29 @@ function SetPasswordContent() {
           )}
 
           <div className="pt-2">
-            <Button
-              label="Save Password →"
+            <button
               type="submit"
-              loading={loading}
-            />
+              disabled={loading}
+              style={{
+                backgroundColor: loading ? `${THEME.PRIMARY}80` : THEME.PRIMARY,
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '14px',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: 700,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s'
+              }}
+              className="hover:brightness-110 active:scale-95 flex items-center justify-center"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                'Save Password →'
+              )}
+            </button>
           </div>
         </form>
       </div>

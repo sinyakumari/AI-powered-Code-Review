@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Button from '@/components/ui/Button';
-import Toast from '@/components/ui/Toast';
 import { MESSAGES, FINAL_CODE, ROUTES, COMMIT } from '@/lib/constants';
+import { useAuthStore } from '@/store/authStore';
+import { useUIStore } from '@/store/uiStore';
 
 interface Suggestion {
   suggestion_id: number;
@@ -43,13 +44,14 @@ export default function FinalCodePage() {
   const params = useParams();
   const id = params.id as string;
 
+  const { token, githubToken, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { showToast, isCommitModalOpen, setCommitModal } = useUIStore();
+
   const [review, setReview] = useState<Review | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [finalCode, setFinalCode] = useState<string>('');
   const [finalLoading, setFinalLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-  const [showCommitModal, setShowCommitModal] = useState(false);
   const [commitLoading, setCommitLoading] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitResult, setCommitResult] = useState<{ branch: string; compareUrl: string } | null>(null);
@@ -66,8 +68,14 @@ export default function FinalCodePage() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { router.push(ROUTES.LOGIN); return; }
+    if (!_hasHydrated) return;
+    
+    const isActuallyAuthenticated = isAuthenticated || (typeof window !== 'undefined' && !!localStorage.getItem('token'));
+    
+    if (!isActuallyAuthenticated) {
+      router.push(ROUTES.LOGIN);
+      return;
+    }
 
     const fetchData = async () => {
       try {
@@ -82,7 +90,6 @@ export default function FinalCodePage() {
           const acceptedCount = data.suggestions.filter((s: any) => s.status === 'accepted').length;
           setCommitMessage(COMMIT.DEFAULT_MESSAGE_TEMPLATE.replace('{count}', acceptedCount.toString()));
 
-          // Fetch AI-merged final code
           const finalRes = await fetch(`/api/review/${id}/final`, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -103,13 +110,7 @@ export default function FinalCodePage() {
       }
     };
     fetchData();
-  }, [id, router]);
-
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
-
-  const acceptedSuggestions = suggestions.filter(s => s.status === 'accepted');
-
-
+  }, [id, router, token, isAuthenticated, showToast, _hasHydrated]);
 
   const handleCopy = () => {
     if (!review) return;
@@ -117,19 +118,40 @@ export default function FinalCodePage() {
     showToast('Code copied to clipboard!', 'success');
   };
 
+  const handleDownload = () => {
+    if (!review) return;
+    const element = document.createElement("a");
+    const file = new Blob([finalCode], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    
+    let extension = '.txt';
+    const lang = review.language?.toLowerCase() || '';
+    if (lang.includes('javascript')) extension = '.js';
+    else if (lang.includes('typescript')) extension = '.ts';
+    else if (lang.includes('python')) extension = '.py';
+    else if (lang.includes('java')) extension = '.java';
+    else if (lang.includes('c++') || lang.includes('cpp')) extension = '.cpp';
+    else if (lang.includes('php')) extension = '.php';
+    else if (lang.includes('go')) extension = '.go';
+    
+    element.download = `final_code_${id}${extension}`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    showToast('File download started!', 'success');
+  };
+
   const handleCommit = async () => {
     if (!githubImport || !review) return;
     setCommitLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const ghToken = localStorage.getItem('github_token');
       const res = await fetch('/api/github/commit', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'x-github-token': ghToken || ''
+          'x-github-token': githubToken || ''
         },
         body: JSON.stringify({
           owner: githubImport.owner,
@@ -167,13 +189,22 @@ export default function FinalCodePage() {
     );
   }
 
-
-
   return (
     <div style={{ minHeight: '100vh', background: T.background, color: T.text, fontFamily: "'Inter', sans-serif" }}>
       <Navbar />
 
       <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+        .msym {
+          font-family: 'Material Symbols Outlined';
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+          display: inline-block;
+          line-height: 1;
+          vertical-align: middle;
+        }
+
         @keyframes spin-sq { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin-sq { animation: spin-sq 0.8s linear infinite; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -196,7 +227,7 @@ export default function FinalCodePage() {
             <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8, color: '#fff' }}>{FINAL_CODE.TITLE}</h1>
             <p style={{ color: T.muted, fontSize: 16 }}>
               {FINAL_CODE.SUBTITLE_TEMPLATE
-                .replace('{accepted}', acceptedSuggestions.length.toString())
+                .replace('{accepted}', suggestions.filter(s => s.status === 'accepted').length.toString())
                 .replace('{total}', suggestions.length.toString())}
             </p>
           </div>
@@ -210,23 +241,31 @@ export default function FinalCodePage() {
             >
               {FINAL_CODE.COPY_BTN}
             </button>
-            {githubImport && (
+            
+            {review?.source === 'github' && githubImport ? (
               <button 
-                onClick={() => setShowCommitModal(true)}
+                onClick={() => setCommitModal(true)}
                 style={{ padding: '12px 24px', background: T.primary, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 600, cursor: 'pointer', boxShadow: `0 4px 12px ${T.primary}40` }}
               >
                 {FINAL_CODE.COMMIT_BTN}
+              </button>
+            ) : (
+              <button 
+                onClick={handleDownload}
+                style={{ padding: '12px 24px', background: T.primary, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 600, cursor: 'pointer', boxShadow: `0 4px 12px ${T.primary}40`, display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <span className="msym" style={{ fontSize: 18 }}>download</span>
+                Download Code
               </button>
             )}
           </div>
         </header>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }}>
-          {/* Editor Area */}
           <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.border}`, overflow: 'hidden', height: 600, display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, background: '#1a2236', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {githubImport?.path || 'reviewed_code.js'}
+                {githubImport?.path || `reviewed_code${review?.language ? '.' + review.language.toLowerCase().slice(0,2) : '.txt'}`}
               </span>
               <span style={{ fontSize: 12, color: T.success }}>{review?.language}</span>
             </div>
@@ -242,7 +281,6 @@ export default function FinalCodePage() {
             </div>
           </div>
 
-          {/* Summary Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <section style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.border}`, padding: 24 }}>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20, color: '#fff' }}>{FINAL_CODE.APPLIED_CHANGES}</h3>
@@ -264,8 +302,7 @@ export default function FinalCodePage() {
         </div>
       </main>
 
-      {/* Commit Modal */}
-      {showCommitModal && (
+      {isCommitModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 20, width: '100%', maxWidth: 500, padding: 32, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
             {!commitResult ? (
@@ -288,7 +325,7 @@ export default function FinalCodePage() {
 
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button 
-                    onClick={() => setShowCommitModal(false)}
+                    onClick={() => setCommitModal(false)}
                     disabled={commitLoading}
                     style={{ flex: 1, padding: '14px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 12, color: T.text, fontWeight: 600, cursor: 'pointer' }}
                   >
@@ -319,7 +356,7 @@ export default function FinalCodePage() {
                     {FINAL_CODE.VIEW_ON_GITHUB}
                   </button>
                   <button 
-                    onClick={() => setShowCommitModal(false)}
+                    onClick={() => setCommitModal(false)}
                     style={{ padding: '14px', background: T.surfaceHigh, border: 'none', borderRadius: 12, color: T.text, fontWeight: 600, cursor: 'pointer' }}
                   >
                     Close
@@ -330,8 +367,6 @@ export default function FinalCodePage() {
           </div>
         </div>
       )}
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

@@ -2,10 +2,12 @@
 
 import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
 
 function AuthSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setAuth } = useAuthStore();
 
   useEffect(() => {
     const handleAuth = async () => {
@@ -16,21 +18,8 @@ function AuthSuccessContent() {
         try {
           const user = JSON.parse(userStr);
           
-          // Clear any existing session first
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          localStorage.removeItem('github_token');
-
-          // Small delay to ensure clear
-          await new Promise(resolve => setTimeout(resolve, 100));
-
-          // Now save new session
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify({
-            user_id: user.user_id,
-            name: user.name,
-            email: user.email
-          }));
+          // Use Zustand store instead of manual localStorage
+          setAuth(user, token);
           
           // Redirect to dashboard
           router.push('/dashboard');
@@ -44,7 +33,7 @@ function AuthSuccessContent() {
     };
 
     handleAuth();
-  }, [router, searchParams]);
+  }, [router, searchParams, setAuth]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#0b1326] text-[#dae2fd]" style={{ fontFamily: 'Poppins, sans-serif' }}>

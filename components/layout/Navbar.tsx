@@ -1,33 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { UI, ROUTES, THEME, NAV_LINKS } from '@/lib/constants';
 import Button from '@/components/ui/Button';
+import { useAuthStore } from '@/store/authStore';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [userName, setUserName] = useState<string>('');
-
-  useEffect(() => {
-    // Read user from localStorage on client side
-    const userJson = localStorage.getItem('user');
-    if (userJson) {
-      try {
-        const user = JSON.parse(userJson);
-        setUserName(user.name || 'User');
-      } catch (e) {
-        setUserName('User');
-      }
-    }
-  }, []);
+  const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('github_token');
+    logout();
     router.push(ROUTES.LOGIN);
   };
 
@@ -77,25 +63,45 @@ export default function Navbar() {
 
       {/* Right Side: User & Logout */}
       <div className="flex items-center gap-6">
-        <Link href={ROUTES.PROFILE} className="flex items-center gap-2.5 group/user cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 transition-colors group-hover/user:border-indigo-500">
-            <svg className="w-4 h-4 text-slate-400 group-hover/user:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+        <Link href={ROUTES.PROFILE} className="flex items-center gap-3 group/user cursor-pointer">
+          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 transition-all duration-300 group-hover/user:border-indigo-500 overflow-hidden">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <svg className="w-5 h-5 text-slate-400 group-hover/user:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            )}
           </div>
-          <span 
-            style={{ color: THEME.TEXT }}
-            className="text-[13px] font-semibold group-hover/user:text-white transition-colors"
-          >
-            {userName || 'Account'}
-          </span>
+          <div className="flex flex-col">
+            <span 
+              style={{ color: THEME.TEXT }}
+              className="text-[13px] font-bold group-hover/user:text-white transition-colors"
+            >
+              {user?.name || 'Account'}
+            </span>
+          </div>
         </Link>
         
         <div className="w-[100px] scale-90 origin-right">
-          <Button
-            label="Logout"
+          <button
             onClick={handleLogout}
-          />
+            style={{
+              backgroundColor: THEME.PRIMARY,
+              color: 'white',
+              width: '100%',
+              padding: '10px 16px',
+              fontSize: '14px',
+              border: 'none',
+              borderRadius: '6px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            className="hover:brightness-110 active:scale-95 flex items-center justify-center"
+          >
+            Logout
+          </button>
         </div>
       </div>
     </nav>

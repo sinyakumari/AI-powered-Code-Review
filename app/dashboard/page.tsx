@@ -1,29 +1,27 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import ReviewCard from '@/components/features/ReviewCard';
 import { THEME, ROUTES, BADGE_VARIANTS } from '@/lib/constants';
+import { useAuthStore } from '@/store/authStore';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [userName, setUserName] = useState('');
+  const { user, isAuthenticated, _hasHydrated } = useAuthStore();
 
   useEffect(() => {
-    // Client-side only
-    const userJson = localStorage.getItem('user');
-    if (userJson) {
-      try {
-        const user = JSON.parse(userJson);
-        setUserName(user.name || 'Developer');
-      } catch (e) {
-        setUserName('Developer');
-      }
+    if (!_hasHydrated) return;
+    
+    const isActuallyAuthenticated = isAuthenticated || (typeof window !== 'undefined' && !!localStorage.getItem('token'));
+    
+    if (!isActuallyAuthenticated) {
+      router.push(ROUTES.LOGIN);
     }
-  }, []);
+  }, [isAuthenticated, _hasHydrated, router]);
 
   const mockReviews = [
     { filename: 'auth_service.ts', status: BADGE_VARIANTS.IN_PROGRESS as any, statusLabel: 'IN PROGRESS', date: 'Oct 24, 2023', issuesCount: 12 },
@@ -35,22 +33,40 @@ export default function DashboardPage() {
     <div style={{ backgroundColor: THEME.BACKGROUND }} className="min-h-screen font-poppins selection:bg-indigo-500/30">
       <Navbar />
       
-      <main className="max-w-7xl mx-auto px-8 py-10">
+      <main style={{ 
+        maxWidth: 1350, 
+        marginLeft: '40px', 
+        marginRight: '40px', 
+        padding: '24px 0' 
+      }}>
         {/* Welcome Section */}
         <div className="flex justify-between items-end mb-12">
           <div>
             <h1 style={{ color: THEME.TEXT }} className="text-3xl font-bold mb-2 tracking-tight">
-              Welcome, {userName}!
+              Welcome, {user?.name || 'Developer'}!
             </h1>
             <p style={{ color: THEME.TEXT_MUTED }} className="text-sm font-medium">
               Ready to analyze your latest commits? Your AI workspace is standing by.
             </p>
           </div>
           <div className="w-[180px]">
-            <Button 
-              label="Start New Review" 
+            <button
               onClick={() => router.push(ROUTES.REVIEW)}
-            />
+              style={{
+                backgroundColor: THEME.PRIMARY,
+                color: '#fff',
+                width: '100%',
+                padding: '12px 28px',
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: 700,
+                boxShadow: `0 4px 20px ${THEME.PRIMARY}40`,
+                transition: 'all 0.3s ease'
+              }}
+              className="hover:scale-105 active:scale-95 flex items-center justify-center"
+            >
+              Start New Review
+            </button>
           </div>
         </div>
 
@@ -129,7 +145,22 @@ export default function DashboardPage() {
                   </h3>
                 </div>
                 <div className="w-[120px]">
-                   <Button label="Apply Fix" onClick={() => {}} />
+                   <button
+                     onClick={() => {}}
+                     style={{
+                       backgroundColor: THEME.PRIMARY,
+                       color: '#fff',
+                       width: '100%',
+                       padding: '10px 16px',
+                       borderRadius: '8px',
+                       fontSize: '12px',
+                       fontWeight: 700,
+                       transition: 'all 0.2s'
+                     }}
+                     className="hover:brightness-110 active:scale-95"
+                   >
+                     Apply Fix
+                   </button>
                 </div>
               </div>
               <div className="bg-[#0b1326] p-5 rounded-xl border border-slate-800 font-mono text-[11px] leading-relaxed overflow-x-auto shadow-inner">

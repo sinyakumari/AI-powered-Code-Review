@@ -7,8 +7,11 @@ import Button from '@/components/ui/Button';
 import { MESSAGES, ROUTES, UI, THEME } from '@/lib/constants';
 import Link from 'next/link';
 
+import { useAuthStore } from '@/store/authStore';
+
 export default function LoginPage() {
   const router = useRouter();
+  const { setAuth } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -56,8 +59,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        setAuth(data.user, data.token);
         router.push(ROUTES.DASHBOARD);
       } else {
         setError(data.message || MESSAGES.ERROR.INVALID_CREDENTIALS);

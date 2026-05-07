@@ -5,9 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import Toast from '@/components/ui/Toast';
 import { MESSAGES, DIFF, ROUTES } from '@/lib/constants';
-
+import { useAuthStore } from '@/store/authStore';
+import { useUIStore } from '@/store/uiStore';
 
 interface Suggestion {
   suggestion_id: number;
@@ -36,17 +36,21 @@ export default function DiffViewPage() {
   const params = useParams();
   const id = params.id as string;
 
+  const { token, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { showToast } = useUIStore();
+
   const [review, setReview] = useState<Review | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // ─── Auth & Data Fetching ───────────────────────────────────────────────────
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!_hasHydrated) return;
+    
+    const isActuallyAuthenticated = isAuthenticated || (typeof window !== 'undefined' && !!localStorage.getItem('token'));
+    
+    if (!isActuallyAuthenticated) {
       router.push(ROUTES.LOGIN);
       return;
     }
@@ -61,7 +65,16 @@ export default function DiffViewPage() {
         if (data.success) {
           setReview(data.review);
           setSuggestions(data.suggestions);
-          setCurrentIndex(0);
+          
+          // Focus specific suggestion if provided in URL
+          const targetId = new URLSearchParams(window.location.search).get('suggestion_id');
+          if (targetId) {
+            const index = data.suggestions.findIndex((s: Suggestion) => s.suggestion_id === parseInt(targetId));
+            if (index !== -1) setCurrentIndex(index);
+            else setCurrentIndex(0);
+          } else {
+            setCurrentIndex(0);
+          }
         } else {
           showToast(data.message || MESSAGES.ERROR.SERVER_ERROR, 'error');
         }
@@ -72,26 +85,16 @@ export default function DiffViewPage() {
       }
     };
 
-    fetchData();
-  }, [id, router]);
+    if (token) fetchData();
+  }, [id, router, token, isAuthenticated, showToast, _hasHydrated]);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
-
-  // ─── Suggestion Navigation ──────────────────────────────────────────────────
   const currentSuggestion = suggestions[currentIndex];
-  
-
-  const reviewedCount = useMemo(() => 
-    suggestions.filter(s => s.status !== 'pending').length, 
-  [suggestions]);
-
+  const reviewedCount = useMemo(() => suggestions.filter(s => s.status !== 'pending').length, [suggestions]);
   const totalCount = suggestions.length;
   const progressPercent = totalCount > 0 ? (reviewedCount / totalCount) * 100 : 0;
 
-  // ─── Actions ───────────────────────────────────────────────────────────────
   const handleAccept = async () => {
-    if (!currentSuggestion) return;
-    const token = localStorage.getItem('token');
+    if (!currentSuggestion || !token) return;
     setActionLoading(true);
 
     try {
@@ -118,8 +121,7 @@ export default function DiffViewPage() {
   };
 
   const handleReject = async () => {
-    if (!currentSuggestion) return;
-    const token = localStorage.getItem('token');
+    if (!currentSuggestion || !token) return;
     setActionLoading(true);
 
     try {
@@ -145,58 +147,31 @@ export default function DiffViewPage() {
     }
   };
 
-  // ─── Diff Rendering Logic ──────────────────────────────────────────────────
   const diffLines = useMemo(() => {
-    if (!review || !currentSuggestion) 
-      return [];
+    if (!review || !currentSuggestion) return [];
     
-    const linesL = review.original_code
-      .split('\n');
+    const linesL = review.original_code.split('\n');
     const linesR = (currentSuggestion.suggested_code || '').split('\n');
     
-    // Find changed line indices
-    const changedIndices = new Set<number>();
     let startIdx = (currentSuggestion.line_number || 1) - 1;
-
-    // Fuzzy match original_snippet if available
     if (currentSuggestion.original_snippet) {
       const snippetLines = currentSuggestion.original_snippet.split('\n').filter(l => l.trim()).map(l => l.trim());
       if (snippetLines.length > 0) {
         for (let i = 0; i <= linesL.length - snippetLines.length; i++) {
           let match = true;
           for (let j = 0; j < snippetLines.length; j++) {
-            if (linesL[i + j]?.trim() !== snippetLines[j]) {
-              match = false;
-              break;
-            }
+            if (linesL[i + j]?.trim() !== snippetLines[j]) { match = false; break; }
           }
-          if (match) {
-            startIdx = i;
-            break;
-          }
+          if (match) { startIdx = i; break; }
         }
       }
     }
     
-    // Mark changed lines
-    for (let i = 0; i < linesR.length; i++) {
-      const idx = startIdx + i;
-      const l = linesL[idx]?.trim() ?? '';
-      const r = linesR[i]?.trim() ?? '';
-      if (l !== r) changedIndices.add(idx);
-    }
-
-    // Build diff for ALL lines
     const diff = [];
     for (let i = 0; i < linesL.length; i++) {
       const left = linesL[i];
-      const right = (i >= startIdx && i < startIdx + linesR.length) 
-        ? linesR[i - startIdx] 
-        : null;
-      
-      const leftTrimmed = left?.trim() ?? '';
-      const rightTrimmed = right?.trim() ?? '';
-      const changed = leftTrimmed !== rightTrimmed;
+      const right = (i >= startIdx && i < startIdx + linesR.length) ? linesR[i - startIdx] : null;
+      const changed = (left?.trim() ?? '') !== (right?.trim() ?? '');
       
       diff.push({
         num: i + 1,
@@ -204,14 +179,11 @@ export default function DiffViewPage() {
         right,
         leftChanged: changed && left !== null && (i >= startIdx && i < startIdx + linesR.length),
         rightChanged: changed && (i >= startIdx && i < startIdx + linesR.length),
-        isSeparator: false,
       });
     }
-    
     return diff;
   }, [review, currentSuggestion]);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0b1326]">
@@ -257,335 +229,86 @@ export default function DiffViewPage() {
       <Navbar />
 
       <main className="max-w-[1280px] mx-auto p-8 pt-6">
-        <button 
-          onClick={() => router.back()} 
-          className="text-slate-400 hover:text-white transition-colors mb-6 flex items-center gap-2 font-medium text-sm"
-        >
+        <button onClick={() => router.back()} className="text-slate-400 hover:text-white transition-colors mb-6 flex items-center gap-2 font-medium text-sm">
           {DIFF.BACK || '← Back'}
         </button>
         
-        {/* 2. SUGGESTION CARD */}
-        <section style={{
-          background: '#131b2e',
-          border: '1px solid #1e293b',
-          borderRadius: 12,
-          padding: '12px 16px',
-          marginBottom: 16,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-        }}>
+        <section style={{ background: '#131b2e', border: '1px solid #1e293b', borderRadius: 12, padding: '12px 16px', marginBottom: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
-              <Badge 
-                label={currentSuggestion?.severity || 'medium'} 
-                variant={(currentSuggestion?.severity as any) || 'medium'} 
-              />
+              <Badge label={currentSuggestion?.severity || 'medium'} variant={(currentSuggestion?.severity as any) || 'medium'} />
             </div>
-            
-            {/* Arrow Navigation */}
             <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-                disabled={currentIndex === 0}
-                className="text-base text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                ←
-              </button>
-              
-              <span className="text-[12px] font-bold text-indigo-400">
-                Suggestion {currentIndex + 1} of {totalCount}
-              </span>
-              
-              <button 
-                onClick={() => setCurrentIndex(Math.min(totalCount - 1, currentIndex + 1))}
-                disabled={currentIndex === totalCount - 1}
-                className="text-base text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                →
-              </button>
+              <button onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))} disabled={currentIndex === 0} className="text-base text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">←</button>
+              <span className="text-[12px] font-bold text-indigo-400">Suggestion {currentIndex + 1} of {totalCount}</span>
+              <button onClick={() => setCurrentIndex(Math.min(totalCount - 1, currentIndex + 1))} disabled={currentIndex === totalCount - 1} className="text-base text-slate-400 hover:text-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">→</button>
             </div>
           </div>
-
           <div className="flex gap-3">
-            <div className="w-8 h-8 bg-indigo-500/10 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/20">
-              <span className="msym text-lg text-indigo-400">shield</span>
-            </div>
+            <div className="w-8 h-8 bg-indigo-500/10 rounded-xl flex items-center justify-center shrink-0 border border-indigo-500/20"><span className="msym text-lg text-indigo-400">shield</span></div>
             <div>
-              <h3 className="text-sm font-bold text-white mb-1 leading-tight font-poppins">
-                {currentSuggestion?.suggestion.split(':')[0] || 'Code Improvement'}
-              </h3>
-              <p className="text-slate-400 text-xs leading-relaxed max-w-3xl">
-                {currentSuggestion?.suggestion.includes(':') 
-                  ? currentSuggestion.suggestion.split(':').slice(1).join(':').trim() 
-                  : currentSuggestion?.suggestion}
-              </p>
+              <h3 className="text-sm font-bold text-white mb-1 leading-tight font-poppins">{currentSuggestion?.suggestion.split(':')[0] || 'Code Improvement'}</h3>
+              <p className="text-slate-400 text-xs leading-relaxed max-w-3xl">{currentSuggestion?.suggestion.includes(':') ? currentSuggestion.suggestion.split(':').slice(1).join(':').trim() : currentSuggestion?.suggestion}</p>
             </div>
           </div>
         </section>
 
-        {/* 3. SIDE BY SIDE DIFF PANEL */}
         <section className="bg-[#111827] border border-slate-800 rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-8">
           <div className="flex border-b border-slate-800 bg-[#131b2e]">
-            {/* Left Header */}
-            <div style={{
-              flex: 1,
-              padding: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              borderRight: '1px solid #1e293b',
-              overflow: 'visible',
-            }}>
-              <div style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: '#ef4444',
-                boxShadow: '0 0 10px #ef4444, 0 0 20px #ef444466',
-                flexShrink: 0,
-                marginLeft: 2,
-              }} />
-              <span style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.15em',
-                color: '#94a3b8',
-                textTransform: 'uppercase',
-              }}>ORIGINAL CODE</span>
+            <div style={{ flex: 1, padding: '16px', display: 'flex', alignItems: 'center', gap: 12, borderRight: '1px solid #1e293b' }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 10px #ef4444' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', color: '#94a3b8', textTransform: 'uppercase' }}>ORIGINAL CODE</span>
             </div>
-            {/* Right Header */}
-            <div style={{
-              flex: 1,
-              padding: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              overflow: 'visible',
-            }}>
-              <div style={{
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                background: '#34d399',
-                boxShadow: '0 0 10px #34d399, 0 0 20px #34d39966',
-                flexShrink: 0,
-                marginLeft: 2,
-              }} />
-              <span style={{
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.15em',
-                color: '#94a3b8',
-                textTransform: 'uppercase',
-              }}>AI SUGGESTION</span>
+            <div style={{ flex: 1, padding: '16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', color: '#94a3b8', textTransform: 'uppercase' }}>AI SUGGESTION</span>
             </div>
           </div>
-
-          <div style={{
-            display: 'flex',
-            height: 320,
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: 13,
-            background: '#060e20',
-            overflow: 'hidden',
-          }}>
-            {/* Left Column (Original) */}
-            <div className="no-scrollbar" style={{
-              flex: 1,
-              borderRight: '1px solid #1e293b',
-              overflowY: 'auto',
-              overflowX: 'auto',
-            }}>
-              {diffLines.map((line, idx) => (
-                line.isSeparator ? (
-                  <div key={`sep-l-${idx}`} style={{
-                    background: '#1a2035',
-                    padding: '2px 16px',
-                    color: '#474555',
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                  }}>
-                    ...
-                  </div>
-                ) : (
-                  <div 
-                    key={`l-${line.num}`} 
-                    className="flex"
-                    style={line.leftChanged ? { backgroundColor: 'rgba(239, 68, 68, 0.15)' } : {}}
-                  >
-                    <div className="w-12 py-1 px-2 text-right text-slate-400 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
-                      {line.left !== null ? line.num : ''}
-                    </div>
-                    <pre className="py-1 px-4" style={{ color: line.leftChanged ? '#fca5a5' : '#cbd5e1' }}>
-                      {line.left !== null ? (line.left || ' ') : ''}
-                    </pre>
-                  </div>
-                )
+          <div style={{ display: 'flex', height: 320, fontFamily: 'JetBrains Mono, monospace', fontSize: 13, background: '#060e20', overflow: 'hidden' }}>
+            <div className="no-scrollbar" style={{ flex: 1, borderRight: '1px solid #1e293b', overflowY: 'auto', overflowX: 'auto' }}>
+              {diffLines.map((line) => (
+                <div key={`l-${line.num}`} className="flex" style={line.leftChanged ? { backgroundColor: 'rgba(239, 68, 68, 0.15)' } : {}}>
+                  <div className="w-12 py-1 px-2 text-right text-slate-400 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">{line.left !== null ? line.num : ''}</div>
+                  <pre className="py-1 px-4" style={{ color: line.leftChanged ? '#fca5a5' : '#cbd5e1' }}>{line.left !== null ? (line.left || ' ') : ''}</pre>
+                </div>
               ))}
             </div>
-
-            {/* Right Column (Suggested) */}
-            <div className="no-scrollbar" style={{
-              flex: 1,
-              overflowY: 'auto',
-              overflowX: 'auto',
-            }}>
-              {diffLines.map((line, idx) => (
-                line.isSeparator ? (
-                  <div key={`sep-r-${idx}`} style={{
-                    background: '#1a2035',
-                    padding: '2px 16px',
-                    color: '#474555',
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                  }}>
-                    ...
-                  </div>
-                ) : (
-                  <div 
-                    key={`r-${line.num}`} 
-                    className="flex"
-                    style={line.rightChanged ? { backgroundColor: 'rgba(52, 211, 153, 0.15)' } : {}}
-                  >
-                    <div className="w-12 py-1 px-2 text-right text-slate-400 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">
-                      {line.right !== null ? line.num : ''}
-                    </div>
-                    <pre className="py-1 px-4" style={{ color: line.rightChanged ? '#6ee7b7' : '#cbd5e1' }}>
-                      {line.right !== null ? (line.right || ' ') : ''}
-                    </pre>
-                  </div>
-                )
+            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+              {diffLines.map((line) => (
+                <div key={`r-${line.num}`} className="flex" style={line.rightChanged ? { backgroundColor: 'rgba(52, 211, 153, 0.15)' } : {}}>
+                  <div className="w-12 py-1 px-2 text-right text-slate-400 bg-[#0b1326] border-r border-slate-800/30 shrink-0 select-none">{line.right !== null ? line.num : ''}</div>
+                  <pre className="py-1 px-4" style={{ color: line.rightChanged ? '#6ee7b7' : '#cbd5e1' }}>{line.right !== null ? (line.right || ' ') : ''}</pre>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* 4. PROGRESS + ACTIONS */}
         <section className="mt-12">
-          {/* Progress Row */}
           <div className="flex items-end justify-between mb-3 px-1">
-            <div>
-              <p className="text-sm font-medium text-slate-400">
-                <span className="text-indigo-400 font-bold">{reviewedCount}</span> of {totalCount} suggestions reviewed
-              </p>
-            </div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-              {totalCount - reviewedCount} Remaining
-            </p>
+            <div><p className="text-sm font-medium text-slate-400"><span className="text-indigo-400 font-bold">{reviewedCount}</span> of {totalCount} suggestions reviewed</p></div>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{totalCount - reviewedCount} Remaining</p>
           </div>
-
-          {/* Progress Bar */}
           <div className="w-full h-1.5 bg-slate-800 rounded-full mb-6 overflow-hidden">
-            <div 
-              className="h-full bg-indigo-500 rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progressPercent}%` }}
-            />
+            <div className="h-full bg-indigo-500 rounded-full transition-all duration-700 ease-out" style={{ width: `${progressPercent}%` }} />
           </div>
-
           <div className="flex justify-between items-center mb-10">
             <div>
               {suggestions.some(s => s.status === 'accepted') && (
-                <button
-                  onClick={() => router.push(`/review/${id}/final`)}
-                  style={{
-                    padding: '8px 20px',
-                    borderRadius: 8,
-                    background: '#6d5bff20',
-                    border: '1px solid #6d5bff40',
-                    color: '#c6c0ff',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#6d5bff33'; e.currentTarget.style.borderColor = '#6d5bff'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#6d5bff20'; e.currentTarget.style.borderColor = '#6d5bff40'; }}
-                >
-                  View Final Code →
-                </button>
+                <button onClick={() => router.push(`/review/${id}/final`)} style={{ padding: '8px 20px', borderRadius: 8, background: '#6d5bff20', border: '1px solid #6d5bff40', color: '#c6c0ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>View Final Code →</button>
               )}
             </div>
           </div>
-
-          {/* Action Buttons Swapped and Polished */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            gap: 12,
-            marginTop: 24
-          }}>
-            {/* Reject Button */}
-            <button
-              onClick={handleReject}
-              disabled={actionLoading}
-              style={{
-                padding: '12px 32px',
-                height: 48,
-                borderRadius: 10,
-                border: '1px solid #474555',
-                background: currentSuggestion?.status === 'rejected'
-                  ? '#2d1f3d' : '#131b2e',
-                color: '#dae2fd',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: actionLoading ? 'not-allowed' : 'pointer',
-                opacity: actionLoading ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                whiteSpace: 'nowrap',
-                fontFamily: "'Poppins', sans-serif",
-                transition: 'all 0.2s',
-                minWidth: 120,
-              }}
-            >
-              ✕ Reject
-            </button>
-
-            {/* Accept Button */}
-            <button
-              onClick={handleAccept}
-              disabled={actionLoading}
-              style={{
-                padding: '12px 32px',
-                height: 48,
-                borderRadius: 10,
-                border: 'none',
-                background: currentSuggestion?.status === 'accepted'
-                  ? '#16a34a' : '#6d5bff',
-                color: '#ffffff',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: actionLoading ? 'not-allowed' : 'pointer',
-                opacity: actionLoading ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                whiteSpace: 'nowrap',
-                fontFamily: "'Poppins', sans-serif",
-                transition: 'all 0.2s',
-                minWidth: 180,
-                boxShadow: '0 4px 20px rgba(109,91,255,0.3)',
-              }}
-            >
-              ✓ Accept Suggestion
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginTop: 24 }}>
+            <button onClick={handleReject} disabled={actionLoading} style={{ padding: '12px 32px', height: 48, borderRadius: 10, border: '1px solid #474555', background: currentSuggestion?.status === 'rejected' ? '#2d1f3d' : '#131b2e', color: '#dae2fd', fontSize: 14, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'nowrap', fontFamily: "'Poppins', sans-serif", transition: 'all 0.2s', minWidth: 120 }}>✕ Reject</button>
+            <button onClick={handleAccept} disabled={actionLoading} style={{ padding: '12px 32px', height: 48, borderRadius: 10, border: 'none', background: currentSuggestion?.status === 'accepted' ? '#16a34a' : '#6d5bff', color: '#ffffff', fontSize: 14, fontWeight: 600, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'nowrap', fontFamily: "'Poppins', sans-serif", transition: 'all 0.2s', minWidth: 180, boxShadow: '0 4px 20px rgba(109,91,255,0.3)' }}>✓ Accept Suggestion</button>
           </div>
         </section>
-
       </main>
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <style jsx>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .stitch-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .stitch-scroll::-webkit-scrollbar-track { background: #0b1326; }
-        .stitch-scroll::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 3px; }
-        .stitch-scroll::-webkit-scrollbar-thumb:hover { background: #474555; }
       `}</style>
     </div>
   );

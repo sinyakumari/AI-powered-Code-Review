@@ -3,9 +3,10 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
-import Toast from '@/components/ui/Toast';
 import { EDITOR, TABS, ROUTES, GITHUB, GITHUB_SIDEBAR, DIFF_CHECKER } from '@/lib/constants';
 import { computeDiff, DiffMode } from '@/lib/diff';
+import { useAuthStore } from '@/store/authStore';
+import { useUIStore } from '@/store/uiStore';
 
 // ─── Design Tokens (Midnight Technical) ────────────────────────────────
 const T = {
@@ -27,6 +28,8 @@ const T = {
 function ReviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { token, githubToken, setGithubToken, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { showToast } = useUIStore();
 
   // ── Existing States ──
   const [activeTab, setActiveTab] = useState(TABS.PASTE);
@@ -35,10 +38,8 @@ function ReviewContent() {
   const [detectedLanguage, setDetectedLanguage] = useState('plaintext');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [fileName, setFileName] = useState('');
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   // ── New GitHub States ──
-  const [githubToken, setGithubToken] = useState<string | null>(null);
   const [repos, setRepos] = useState<any[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<any | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
@@ -98,43 +99,43 @@ function ReviewContent() {
   const additionsCount = rightLines.filter(l => l.type === 'added').length;
 
   // ── Functions ──
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => setToast({ message, type });
-
-  const fetchRepos = useCallback(async (token: string) => {
+  const fetchRepos = useCallback(async (gToken: string) => {
+    if (!token) return; // Prevent 401 by waiting for JWT hydration
+    
     setGithubLoading(true);
     try {
-      const jwtToken = localStorage.getItem('token');
       const res = await fetch('/api/github/repos', {
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
-          'x-github-token': token
+          'Authorization': `Bearer ${token}`,
+          'x-github-token': gToken
         }
       });
       const data = await res.json();
       if (data.success) {
         setRepos(data.repos);
       } else {
-        localStorage.removeItem('github_token');
-        setGithubToken(null);
-        showToast('GitHub session expired. Please reconnect.', 'error');
+        // Only clear if the GitHub token specifically is invalid
+        if (res.status === 401 && data.message?.toLowerCase().includes('github')) {
+          setGithubToken(null);
+          showToast('GitHub session expired. Please reconnect.', 'error');
+        }
       }
     } catch {
       showToast('Failed to load repositories', 'error');
     } finally {
       setGithubLoading(false);
     }
-  }, []);
+  }, [token, setGithubToken, showToast]);
 
-  const fetchFiles = async (owner: string, repo: string, path: string = '', tokenOverride?: string) => {
+  const fetchFiles = async (owner: string, repo: string, path: string = '', gTokenOverride?: string) => {
     setGithubLoading(true);
     try {
-      const activeToken = tokenOverride || githubToken;
+      const activeToken = gTokenOverride || githubToken;
       if (!activeToken) return;
 
-      const jwtToken = localStorage.getItem('token');
       const res = await fetch(`/api/github/repos/${owner}/${repo}/files?path=${path}`, {
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
+          'Authorization': `Bearer ${token}`,
           'x-github-token': activeToken,
         }
       });
@@ -157,14 +158,13 @@ function ReviewContent() {
     }
   };
 
-  const fetchProjectContext = async (owner: string, repo: string, tokenOverride?: string) => {
+  const fetchProjectContext = async (owner: string, repo: string, gTokenOverride?: string) => {
     try {
-      const activeToken = tokenOverride || githubToken;
+      const activeToken = gTokenOverride || githubToken;
       if (!activeToken) return;
 
-      const jwtToken = localStorage.getItem('token');
       const headers = {
-        'Authorization': `Bearer ${jwtToken}`,
+        'Authorization': `Bearer ${token}`,
         'x-github-token': activeToken,
       };
 
@@ -195,40 +195,23 @@ function ReviewContent() {
   };
 
   const handleFileImport = async (file: any) => {
-    console.log('=== FILE IMPORT DEBUG ===');
-    console.log('File clicked:', file.name);
-    console.log('File type:', file.type);
-    console.log('File size:', file.size);
-    console.log('Download URL:', file.download_url);
-    console.log('GitHub token exists:', !!githubToken);
-    console.log('Selected repo:', selectedRepo?.name);
-
     if (file.size > 10000) {
-      console.log('BLOCKED: File too large');
       showToast(GITHUB_SIDEBAR.FILE_TOO_LARGE, 'error');
       return;
     }
 
     setGithubLoading(true);
     try {
-      const jwtToken = localStorage.getItem('token');
-      console.log('JWT token exists:', !!jwtToken);
-
       const url = `/api/github/file?url=${encodeURIComponent(file.download_url)}`;
-      console.log('Fetching URL:', url);
-
       const res = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
+          'Authorization': `Bearer ${token}`,
         }
       });
 
-      console.log('Response status:', res.status);
       const data = await res.json();
-      console.log('Response data:', data);
 
       if (data.success) {
-        console.log('Code length received:', data.content?.length);
         setCode(data.content);
         setCodeSource('github');
         setFileName(file.name);
@@ -250,13 +233,10 @@ function ReviewContent() {
         }));
 
         showToast(GITHUB_SIDEBAR.IMPORT_SUCCESS, 'success');
-        // Stay on GitHub tab as requested
       } else {
-        console.log('FAILED:', data.message);
         showToast(data.message || 'Failed to import file', 'error');
       }
     } catch (err) {
-      console.log('CATCH ERROR:', err);
       showToast('Failed to import file', 'error');
     } finally {
       setGithubLoading(false);
@@ -264,7 +244,6 @@ function ReviewContent() {
   };
 
   const handleDisconnect = () => {
-    localStorage.removeItem('github_token');
     setGithubToken(null);
     setRepos([]);
     setFiles([]);
@@ -304,8 +283,10 @@ function ReviewContent() {
 
   // ── On Page Load (Restore) ──
   useEffect(() => {
+    if (!_hasHydrated) return;
+    
     const urlParams = new URLSearchParams(window.location.search);
-    const ghToken = urlParams.get('github_token');
+    const ghTokenFromUrl = urlParams.get('github_token');
     
     // Restore Code
     const savedCode = localStorage.getItem('review_code');
@@ -323,16 +304,12 @@ function ReviewContent() {
     }
 
     // Restore GitHub Data
-    if (ghToken) {
-      setGithubToken(ghToken);
-      localStorage.setItem('github_token', ghToken);
+    if (ghTokenFromUrl) {
+      setGithubToken(ghTokenFromUrl);
       window.history.replaceState({}, '', `/review${tabParam ? `?tab=${tabParam}` : ''}`);
-      fetchRepos(ghToken);
-    } else {
-      const saved = localStorage.getItem('github_token');
-      if (saved) {
-        setGithubToken(saved);
-        fetchRepos(saved);
+      fetchRepos(ghTokenFromUrl);
+    } else if (githubToken) {
+        fetchRepos(githubToken);
         
         // Restore Repo and Path
         const savedRepo = localStorage.getItem('review_selected_repo');
@@ -345,27 +322,26 @@ function ReviewContent() {
             const repo = JSON.parse(savedRepo);
             setSelectedRepo(repo);
             // Fetch both files and context immediately
-            fetchFiles(repo.owner.login, repo.name, savedPath, saved); 
-            fetchProjectContext(repo.owner.login, repo.name, saved);
+            fetchFiles(repo.owner.login, repo.name, savedPath, githubToken); 
+            fetchProjectContext(repo.owner.login, repo.name, githubToken);
           } catch (e) {
             console.error("Failed to parse saved repo", e);
           }
         }
         if (savedFile) setImportedFile(JSON.parse(savedFile));
         if (savedCtx) setProjectContext(JSON.parse(savedCtx));
-      }
     }
-  }, [fetchRepos]);
+  }, [fetchRepos, githubToken, setGithubToken, token, _hasHydrated]);
 
   // ── Auth guard ──
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { router.push(ROUTES.LOGIN); return; }
-  }, [router]);
+    if (!_hasHydrated) return;
+    const isActuallyAuthenticated = isAuthenticated || (typeof window !== 'undefined' && !!localStorage.getItem('token'));
+    if (!isActuallyAuthenticated) { router.push(ROUTES.LOGIN); return; }
+  }, [isAuthenticated, _hasHydrated, router]);
 
   // ── Language Detection ──
   const detectLanguage = useCallback(async (snippet: string) => {
-    const token = localStorage.getItem('token');
     if (!token) return;
     try {
       const res = await fetch('/api/review/detect-language', {
@@ -378,7 +354,7 @@ function ReviewContent() {
         setDetectedLanguage(data.language || 'plaintext');
       }
     } catch { /* silent */ }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -430,7 +406,6 @@ function ReviewContent() {
   const handleAnalyze = async () => {
     if (!code.trim()) { showToast('Please provide some code to analyze', 'error'); return; }
     if (code.length > EDITOR.MAX_CHARS) { showToast(`Code exceeds ${EDITOR.MAX_CHARS} characters`, 'error'); return; }
-    const token = localStorage.getItem('token');
     if (!token) { showToast('Session expired. Please login again.', 'error'); router.push(ROUTES.LOGIN); return; }
 
     setIsAnalyzing(true);
@@ -484,9 +459,6 @@ function ReviewContent() {
     setCommitLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const ghToken = localStorage.getItem('github_token');
-      
       const branchName = commitBranchName || `coderefine-manual-${new Date().getTime().toString().slice(-6)}`;
 
       const res = await fetch('/api/github/commit', {
@@ -494,7 +466,7 @@ function ReviewContent() {
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'x-github-token': ghToken || ''
+          'x-github-token': githubToken || ''
         },
         body: JSON.stringify({
           owner: importedFile.owner,
@@ -1480,15 +1452,13 @@ function ReviewContent() {
           </div>
         </div>
       )}
-
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </main>
   );
 }
 
 export default function ReviewPage() {
   return (
-    <div style={{ backgroundColor: T.background, color: T.onSurface, minHeight: '100vh', fontFamily: "'Inter', sans-serif" }}>
+    <div className="min-h-screen font-poppins" style={{ backgroundColor: T.background, color: T.onSurface }}>
       <Navbar />
       <Suspense fallback={
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>

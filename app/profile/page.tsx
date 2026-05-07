@@ -7,50 +7,30 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Toast from '@/components/ui/Toast';
 import Badge from '@/components/ui/Badge';
-import { PROFILE_TOKENS as T, PROFILE, MESSAGES, STATUS_CODES } from '@/lib/constants';
+import { PROFILE_TOKENS as T, PROFILE, MESSAGES } from '@/lib/constants';
+import { useAuthStore } from '@/store/authStore';
+import { useProfileStore } from '@/store/profileStore';
+import { useUIStore } from '@/store/uiStore';
 
 const COUNTRIES = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany", 
   "France", "India", "Japan", "Brazil", "Netherlands", "Singapore", "Other"
 ];
 
-interface UserProfile {
-  user_id: string;
-  name: string;
-  email: string;
-  bio: string | null;
-  location: string | null;
-  timezone: string | null;
-  avatar_url: string | null;
-  github_id: string | null;
-}
-
-interface Language {
-  name: string;
-  percentage: number;
-}
-
-interface Repo {
-  name: string;
-  html_url: string;
-}
-
-interface Contribution {
-  date: string;
-  count: number;
-}
-
 const ProfilePage = () => {
   const router = useRouter();
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [languages, setLanguages] = useState<Language[]>([]);
-  const [repos, setRepos] = useState<Repo[]>([]);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const { user, token, githubToken, updateUser, isAuthenticated, _hasHydrated } = useAuthStore();
+  const { 
+    languages, 
+    repos, 
+    contributions, 
+    githubLoading, 
+    fetchGithubData 
+  } = useProfileStore();
+  const { showToast } = useUIStore();
+
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  // Edit form state
   const [formData, setFormData] = useState({
     name: '',
     bio: '',
@@ -59,106 +39,59 @@ const ProfilePage = () => {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!_hasHydrated) return;
+
+    if (!isAuthenticated) {
       router.push('/login');
       return;
     }
+    
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        if (token) {
+          const res = await fetch('/api/profile', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
 
-    fetchProfile(token);
-  }, [router]);
+          if (data.success) {
+            updateUser(data.user);
+            setFormData({
+              name: data.user.name || '',
+              bio: data.user.bio || '',
+              location: data.user.location || '',
+              timezone: data.user.timezone || ''
+            });
+
+            if (githubToken) {
+              await fetchGithubData(token, githubToken);
+            }
+          }
+        }
+      } catch (error) {
+        showToast(MESSAGES.ERROR.SERVER_ERROR, 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [token, githubToken, isAuthenticated, router, updateUser, fetchGithubData, showToast, _hasHydrated]);
 
   useEffect(() => {
-    if (isEditing) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+    document.body.style.overflow = isEditing ? 'hidden' : 'unset';
+    return () => { document.body.style.overflow = 'unset'; };
   }, [isEditing]);
 
-  const fetchProfile = async (token: string) => {
-    try {
-      const res = await fetch('/api/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setUser(data.user);
-        setFormData({
-          name: data.user.name || '',
-          bio: data.user.bio || '',
-          location: data.user.location || '',
-          timezone: data.user.timezone || ''
-        });
-
-        const githubToken = localStorage.getItem('github_token');
-        if (githubToken) {
-          await fetchGithubData(githubToken); // Wait for GitHub data too
-        }
-      } else {
-        setToast({ message: data.message || MESSAGES.ERROR.PROFILE_NOT_FOUND, type: 'error' });
-      }
-    } catch (error) {
-      setToast({ message: MESSAGES.ERROR.SERVER_ERROR, type: 'error' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchGithubData = async (githubToken: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { 
-        'x-github-token': githubToken,
-        'Authorization': `Bearer ${token}`
-      };
-      
-      const [langRes, repoRes, contribRes] = await Promise.all([
-        fetch('/api/github/languages', { headers }),
-        fetch('/api/github/repos', { headers }),
-        fetch('/api/github/contributions', { headers })
-      ]);
-
-      const [langData, repoData, contribData] = await Promise.all([
-        langRes.json(),
-        repoRes.json(),
-        contribRes.json()
-      ]);
-
-      if (langData.success) {
-        setLanguages(langData.languages);
-      }
-      if (repoData.success) {
-        const sortedRepos = repoData.repos.sort((a: any, b: any) => 
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-        );
-        setRepos(sortedRepos.slice(0, 3));
-      }
-      if (contribData.success) setContributions(contribData.contributions);
-    } catch (error) {
-      console.error('Failed to fetch GitHub data:', error);
-    }
-  };
-
   const handleProjectClick = (repo: any) => {
-    if (repo.html_url === '#') return; // Don't redirect for placeholder repos
-
-    // Persist state for the Review page to pick up
+    if (repo.html_url === '#') return;
     localStorage.setItem('review_selected_repo', JSON.stringify(repo));
     localStorage.setItem('review_active_tab', 'github');
-    localStorage.removeItem('review_current_path'); // Start at root of repo
-    localStorage.removeItem('review_code');         // Clear any old code
-    localStorage.removeItem('review_imported_file'); 
-    
     router.push('/review?tab=github');
   };
 
   const handleSave = async () => {
-    const token = localStorage.getItem('token');
     if (!token) return;
 
     try {
@@ -173,14 +106,14 @@ const ProfilePage = () => {
       const data = await res.json();
 
       if (data.success) {
-        setToast({ message: MESSAGES.SUCCESS.PROFILE_UPDATED, type: 'success' });
-        setUser({ ...user!, ...formData });
+        showToast(MESSAGES.SUCCESS.PROFILE_UPDATED, 'success');
+        updateUser(formData);
         setIsEditing(false);
       } else {
-        setToast({ message: data.message || MESSAGES.ERROR.PROFILE_UPDATE_FAILED, type: 'error' });
+        showToast(data.message || MESSAGES.ERROR.PROFILE_UPDATE_FAILED, 'error');
       }
     } catch (error) {
-      setToast({ message: MESSAGES.ERROR.SERVER_ERROR, type: 'error' });
+      showToast(MESSAGES.ERROR.SERVER_ERROR, 'error');
     }
   };
 
@@ -193,9 +126,6 @@ const ProfilePage = () => {
   };
 
   const renderContributionMatrix = () => {
-    const githubToken = localStorage.getItem('github_token');
-    
-    // If connected but no data yet, show empty blocks. If not connected, show demo data.
     const displayData = (githubToken && contributions.length > 0) 
       ? contributions 
       : (githubToken 
@@ -221,11 +151,14 @@ const ProfilePage = () => {
   };
 
   return (
-    <div style={{ background: T.background, minHeight: '100vh', color: T.onSurface, fontFamily: 'Poppins, sans-serif' }}>
+    <div className="min-h-screen font-poppins" style={{ background: T.background, color: T.onSurface }}>
       <Navbar />
       
       <main style={{ 
-        padding: '16px',
+        maxWidth: 1350, 
+        marginLeft: '40px', 
+        marginRight: '40px', 
+        padding: '24px 0',
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
         gap: '16px'
@@ -305,13 +238,11 @@ const ProfilePage = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {(() => {
-              const hasGithub = typeof window !== 'undefined' && !!localStorage.getItem('github_token');
-              
-              if (hasGithub && languages.length === 0) {
+              if (githubToken && languages.length === 0 && githubLoading) {
                 return <div style={{ fontSize: '12px', color: T.outline, padding: '20px 0' }}>Updating tech stack...</div>;
               }
 
-              const displayLanguages = (hasGithub && languages.length > 0) ? languages.slice(0, 3) : [
+              const displayLanguages = (githubToken && languages.length > 0) ? languages.slice(0, 3) : [
                 { name: 'JavaScript', percentage: 92 },
                 { name: 'Python', percentage: 85 },
                 { name: 'React', percentage: 78 }
@@ -352,13 +283,11 @@ const ProfilePage = () => {
 
           <div>
             {(() => {
-              const hasGithub = typeof window !== 'undefined' && !!localStorage.getItem('github_token');
-              
-              if (hasGithub && repos.length === 0) {
+              if (githubToken && repos.length === 0 && githubLoading) {
                 return <div style={{ fontSize: '12px', color: T.outline, padding: '20px 0' }}>Fetching repositories...</div>;
               }
 
-              const displayRepos = (hasGithub && repos.length > 0) ? repos.slice(0, 2) : [
+              const displayRepos = (githubToken && repos.length > 0) ? repos.slice(0, 2) : [
                 { name: 'portfolio-v2', html_url: '#' },
                 { name: 'ai-code-reviewer', html_url: '#' }
               ];
@@ -497,14 +426,6 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
       )}
 
       <style jsx global>{`
