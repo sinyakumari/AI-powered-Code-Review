@@ -85,14 +85,12 @@ function ReviewContent() {
   const { leftLines, rightLines } = useMemo(() => {
     const codeToUse = code || '';
     if (!diffRightCode || diffRightCode.trim() === '') {
-      return {
-        leftLines: codeToUse.split('\n').map((content, i) => ({
-          lineNum: i + 1,
-          content,
-          type: 'unchanged' as const,
-        })),
-        rightLines: [] as { lineNum: number; content: string; type: 'unchanged' | 'removed' | 'added' }[],
-      };
+      const lines = codeToUse.split('\n').map((content, i) => ({
+        lineNum: i + 1,
+        content,
+        type: 'unchanged' as const,
+      }));
+      return { leftLines: lines, rightLines: [] };
     }
     return computeDiff(codeToUse, diffRightCode, diffMode);
   }, [code, diffRightCode, diffMode]);
@@ -874,7 +872,7 @@ function ReviewContent() {
         )}
 
         {/* ── Editor Main Area ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', height: '100%', minHeight: 0 }}>
 
           {/* AI Analyzing overlay */}
           {isAnalyzing && (
@@ -922,10 +920,10 @@ function ReviewContent() {
             </div>
           )}
 
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0, height: '100%' }}>
             {/* ── Split Diff View ── */}
             {activeTab === TABS.GITHUB && isDiffMode ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0, height: '100%' }}>
 
                 {/* Stats Bar */}
                 <div style={{
@@ -946,7 +944,7 @@ function ReviewContent() {
                 </div>
 
                 {/* Two panels */}
-                <div style={{ flex: 1, width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden' }}>
+                <div style={{ flex: 1, width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', overflow: 'hidden', minHeight: 0, height: '100%' }}>
 
                   {/* LEFT PANEL */}
                   <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #2d3449' }}>
@@ -966,11 +964,10 @@ function ReviewContent() {
                       ><span className="msym" style={{ fontSize: 14 }}>content_copy</span> {DIFF_CHECKER.COPY_TOOLTIP}</button>
                     </div>
                     {/* Body */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', background: '#060e20' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', background: '#060e20', height: 480 }}>
                       {/* LEFT LINE NUMBERS */}
                       <div
                         ref={leftLineNumbersRef}
-                        className="no-scrollbar"
                         style={{
                           width: 48, background: '#060e20',
                           padding: '8px 12px 8px 0', textAlign: 'right',
@@ -978,6 +975,7 @@ function ReviewContent() {
                           fontSize: 13, color: '#474555',
                           userSelect: 'none', overflowY: 'hidden',
                           flexShrink: 0, zIndex: 1,
+                          height: 480,
                         }}
                       >
                         {leftLines.map((line, i) => (
@@ -994,15 +992,15 @@ function ReviewContent() {
                       <div
                         ref={leftPanelRef}
                         className="no-scrollbar"
-                        onScroll={() => {
-                          if (leftLineNumbersRef.current && leftPanelRef.current) {
-                            leftLineNumbersRef.current.scrollTop = leftPanelRef.current.scrollTop;
-                          }
+                        onScroll={(e) => {
+                          if (leftLineNumbersRef.current) leftLineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
                         }}
                         style={{
-                          flex: 1, overflow: 'auto', background: '#060e20',
+                          width: '100%', height: 480, overflowY: 'scroll', overflowX: 'auto', background: '#060e20',
                           fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
                           padding: '8px 0',
+                          zIndex: 10,
+                          border: `1px solid ${T.surfaceHighest}`,
                         }}
                       >
                         <div style={{ minWidth: 'max-content' }}>
@@ -1046,17 +1044,18 @@ function ReviewContent() {
                       ><span className="msym" style={{ fontSize: 14 }}>content_copy</span> {DIFF_CHECKER.COPY_TOOLTIP}</button>
                     </div>
                     {/* Body — editable textarea with line numbers */}
-                    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#060e20' }}>
+                    <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#060e20', height: 480 }}>
                       {/* BACKGROUND LAYER (Continuous Highlights & Text) */}
                       <div
                         ref={rightBgRef}
                         className="no-scrollbar"
                         style={{
                           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                          padding: '8px 0', // match 8px top/bottom padding
+                          padding: '8px 0',
                           fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
                           whiteSpace: 'pre', overflow: 'hidden',
                           pointerEvents: 'none', zIndex: 0,
+                          height: 480,
                         }}
                       >
                         <div style={{ minWidth: 'max-content' }}>
@@ -1085,10 +1084,9 @@ function ReviewContent() {
                       </div>
 
                       {/* FOREGROUND LAYER (Line Numbers + Textarea) */}
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'row', zIndex: 1 }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'row', zIndex: 1, height: 480 }}>
                         <div
                           ref={rightLineNumbersRef}
-                          className="no-scrollbar"
                           style={{
                             width: 48, background: '#060e20',
                             padding: '8px 12px 8px 0', textAlign: 'right',
@@ -1096,6 +1094,7 @@ function ReviewContent() {
                             fontSize: 13, color: '#474555',
                             userSelect: 'none', overflowY: 'hidden',
                             flexShrink: 0, zIndex: 1,
+                            height: 480,
                           }}
                         >
                           {rightLines.length > 0 ? rightLines.map((line, i) => (
@@ -1114,25 +1113,28 @@ function ReviewContent() {
                           ref={rightTextareaRef}
                           value={diffRightCode}
                           onChange={e => setDiffRightCode(e.target.value)}
-                          onScroll={() => { 
-                            if (rightLineNumbersRef.current && rightTextareaRef.current) rightLineNumbersRef.current.scrollTop = rightTextareaRef.current.scrollTop;
-                            if (rightBgRef.current && rightTextareaRef.current) {
-                              rightBgRef.current.scrollTop = rightTextareaRef.current.scrollTop;
-                              rightBgRef.current.scrollLeft = rightTextareaRef.current.scrollLeft;
+                          onScroll={(e) => { 
+                            const target = e.currentTarget;
+                            if (rightLineNumbersRef.current) rightLineNumbersRef.current.scrollTop = target.scrollTop;
+                            if (rightBgRef.current) {
+                              rightBgRef.current.scrollTop = target.scrollTop;
+                              rightBgRef.current.scrollLeft = target.scrollLeft;
                             }
                           }}
                           spellCheck={false}
                           wrap="off"
                           className="no-scrollbar"
                           style={{
-                            flex: 1, height: '100%',
+                            width: '100%', height: 480,
                             background: 'transparent',
                             color: 'transparent', // Magic trick for custom editors
                             caretColor: '#dae2fd',
                             fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
                             lineHeight: '22.1px', padding: '8px 16px',
-                            border: 'none', outline: 'none', resize: 'none', margin: 0,
-                            whiteSpace: 'pre', overflow: 'auto',
+                            border: `1px solid ${T.surfaceHighest}`, 
+                            outline: 'none', resize: 'none', margin: 0,
+                            whiteSpace: 'pre', overflowY: 'scroll', overflowX: 'auto',
+                            zIndex: 10,
                           }}
                         />
                       </div>

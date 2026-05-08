@@ -4,10 +4,19 @@ import crypto from 'crypto';
 export async function GET(req: NextRequest) {
   try {
     const clientId = process.env.GITHUB_CLIENT_ID;
+    const envRedirectUri = process.env.GITHUB_LOGIN_REDIRECT_URI;
     
     const host = req.headers.get('host');
     const protocol = host?.includes('localhost') ? 'http' : 'https';
     const dynamicRedirectUri = `${protocol}://${host}/api/auth/github/login/callback`;
+
+    // Use environment variable if set, otherwise fallback to dynamic
+    const redirect_uri = envRedirectUri || dynamicRedirectUri;
+
+    console.log('GitHub Login Initiated:', { 
+      clientId: clientId?.substring(0, 5) + '...', 
+      redirect_uri 
+    });
 
     if (!clientId) {
       throw new Error('GitHub Client ID is not configured');
@@ -18,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: dynamicRedirectUri,
+      redirect_uri: redirect_uri,
       scope: 'user:email read:user',
       state: state,
     });
@@ -39,6 +48,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     console.error('GitHub Login API Error:', error);
-    return NextResponse.redirect(new URL('/login?error=github_failed', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'));
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
+    return NextResponse.redirect(new URL('/login?error=github_failed', appUrl));
   }
 }
