@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
 export async function GET(req: NextRequest) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   try {
     // JWT verification removed because this endpoint is called directly via window.location.href
     // without an Authorization header. Initiating OAuth is safe to be public.
@@ -11,7 +12,6 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.GITHUB_IMPORT_CLIENT_ID;
     const envRedirectUri = process.env.GITHUB_REDIRECT_URI;
     
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const dynamicRedirectUri = `${baseUrl}/api/auth/github/callback`;
 
     // Use environment variable if set, otherwise fallback to dynamic
