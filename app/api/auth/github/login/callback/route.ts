@@ -17,9 +17,9 @@ export async function GET(req: NextRequest) {
       throw new Error('Invalid state or missing parameters');
     }
 
-    const clientId = process.env.GITHUB_CLIENT_ID;
-    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-    const envRedirectUri = process.env.GITHUB_LOGIN_REDIRECT_URI;
+    const clientId = process.env.GH_APP_CLIENT_ID;
+    const clientSecret = process.env.GH_APP_CLIENT_SECRET;
+    const envRedirectUri = process.env.GH_APP_LOGIN_REDIRECT;
     
     const dynamicRedirectUri = `${baseUrl}/api/auth/github/login/callback`;
     const redirect_uri = envRedirectUri || dynamicRedirectUri;

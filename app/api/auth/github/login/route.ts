@@ -3,8 +3,8 @@ import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
   try {
-    const clientId = process.env.GITHUB_CLIENT_ID;
-    const envRedirectUri = process.env.GITHUB_LOGIN_REDIRECT_URI;
+    const clientId = process.env.GH_APP_CLIENT_ID;
+    const envRedirectUri = process.env.GH_APP_LOGIN_REDIRECT;
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const dynamicRedirectUri = `${baseUrl}/api/auth/github/callback`;

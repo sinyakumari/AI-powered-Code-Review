@@ -9,8 +9,8 @@ export async function GET(req: NextRequest) {
     // without an Authorization header. Initiating OAuth is safe to be public.
 
 
-    const clientId = process.env.GITHUB_IMPORT_CLIENT_ID;
-    const envRedirectUri = process.env.GITHUB_REDIRECT_URI;
+    const clientId = process.env.GH_APP_IMPORT_ID;
+    const envRedirectUri = process.env.GH_APP_REDIRECT_URI;
     
     const dynamicRedirectUri = `${baseUrl}/api/auth/github/callback`;
 
