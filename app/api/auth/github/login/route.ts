@@ -6,9 +6,8 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.GITHUB_CLIENT_ID;
     const envRedirectUri = process.env.GITHUB_LOGIN_REDIRECT_URI;
     
-    const host = req.headers.get('host');
-    const protocol = host?.includes('localhost') ? 'http' : 'https';
-    const dynamicRedirectUri = `${protocol}://${host}/api/auth/github/login/callback`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const dynamicRedirectUri = `${baseUrl}/api/auth/github/callback`;
 
     // Use environment variable if set, otherwise fallback to dynamic
     const redirect_uri = envRedirectUri || dynamicRedirectUri;
@@ -48,7 +47,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     console.error('GitHub Login API Error:', error);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    return NextResponse.redirect(new URL('/login?error=github_failed', appUrl));
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    return NextResponse.redirect(new URL('/login?error=github_failed', baseUrl));
   }
 }

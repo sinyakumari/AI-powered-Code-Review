@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
-  const host = req.headers.get('host');
-  const protocol = host?.includes('localhost') ? 'http' : 'https';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
-  const baseUrl = appUrl;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -21,7 +18,7 @@ export async function GET(req: NextRequest) {
     const clientSecret = process.env.GITHUB_IMPORT_CLIENT_SECRET;
     const envRedirectUri = process.env.GITHUB_REDIRECT_URI;
     
-    const dynamicRedirectUri = `${protocol}://${host}/api/auth/github/callback`;
+    const dynamicRedirectUri = `${baseUrl}/api/auth/github/callback`;
     const redirect_uri = envRedirectUri || dynamicRedirectUri;
 
     if (!clientId || !clientSecret) {

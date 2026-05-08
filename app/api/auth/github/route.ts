@@ -11,9 +11,8 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.GITHUB_IMPORT_CLIENT_ID;
     const envRedirectUri = process.env.GITHUB_REDIRECT_URI;
     
-    const host = req.headers.get('host');
-    const protocol = host?.includes('localhost') ? 'http' : 'https';
-    const dynamicRedirectUri = `${protocol}://${host}/api/auth/github/callback`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const dynamicRedirectUri = `${baseUrl}/api/auth/github/callback`;
 
     // Use environment variable if set, otherwise fallback to dynamic
     const redirect_uri = envRedirectUri || dynamicRedirectUri;
@@ -51,6 +50,6 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     console.error('GitHub Repo Auth API Error:', error);
-    return NextResponse.redirect(new URL('/review?error=github_failed&tab=github', process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000')));
+    return NextResponse.redirect(new URL('/review?error=github_failed&tab=github', baseUrl));
   }
 }

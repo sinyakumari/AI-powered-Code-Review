@@ -4,10 +4,7 @@ import { query } from '@/lib/db';
 import { AUTH, ROUTES } from '@/lib/constants';
 
 export async function GET(req: NextRequest) {
-  const host = req.headers.get('host');
-  const protocol = host?.includes('localhost') ? 'http' : 'https';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
-  const baseUrl = appUrl;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   
   try {
     const searchParams = req.nextUrl.searchParams;
