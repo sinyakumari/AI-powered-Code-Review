@@ -54,6 +54,7 @@ export default function FinalCodePage() {
   const [finalLoading, setFinalLoading] = useState(true);
   const [commitLoading, setCommitLoading] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
+  const [commitBranchName, setCommitBranchName] = useState(`${COMMIT.BRANCH_PREFIX}${id}`);
   const [commitResult, setCommitResult] = useState<{ branch: string; compareUrl: string } | null>(null);
 
   const [githubImport, setGithubImport] = useState<any>(null);
@@ -158,7 +159,7 @@ export default function FinalCodePage() {
           repo: githubImport.repo,
           path: githubImport.path,
           content: finalCode,
-          branch_name: `${COMMIT.BRANCH_PREFIX}${id}`,
+          branch_name: commitBranchName,
           commit_message: commitMessage,
           review_id: id
         }),
@@ -182,8 +183,40 @@ export default function FinalCodePage() {
     return (
       <div style={{ minHeight: '100vh', background: T.background }}>
         <Navbar />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 80px)' }}>
-          <div className="spin-sq" style={{ width: 40, height: 40, border: `3px solid ${T.primary}33`, borderTopColor: T.primary, borderRadius: 10 }} />
+        <style jsx global>{`
+          @keyframes spin-sq { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes stitch-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        `}</style>
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 50,
+          background: 'rgba(11, 19, 38, 0.85)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+        }}>
+          <div style={{
+            width: 56,
+            height: 56,
+            border: '4px solid rgba(109, 91, 255, 0.2)',
+            borderTopColor: '#6d5bff',
+            borderRadius: 14,
+            animation: 'spin-sq 1.6s linear infinite',
+          }} />
+          <p style={{
+            color: '#6d5bff',
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontWeight: 500,
+            fontSize: 16,
+            letterSpacing: '0.025em',
+            animation: 'stitch-pulse 2s ease-in-out infinite',
+          }}>
+            🤖 AI is generating final code...
+          </p>
         </div>
       </div>
     );
@@ -206,6 +239,7 @@ export default function FinalCodePage() {
         }
 
         @keyframes spin-sq { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes stitch-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .spin-sq { animation: spin-sq 0.8s linear infinite; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -242,14 +276,16 @@ export default function FinalCodePage() {
               {FINAL_CODE.COPY_BTN}
             </button>
             
-            {review?.source === 'github' && githubImport ? (
+            {githubImport && review?.source === 'github' && (
               <button 
                 onClick={() => setCommitModal(true)}
                 style={{ padding: '12px 24px', background: T.primary, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 600, cursor: 'pointer', boxShadow: `0 4px 12px ${T.primary}40` }}
               >
                 {FINAL_CODE.COMMIT_BTN}
               </button>
-            ) : (
+            )}
+            
+            {review?.source === 'upload' && (
               <button 
                 onClick={handleDownload}
                 style={{ padding: '12px 24px', background: T.primary, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 600, cursor: 'pointer', boxShadow: `0 4px 12px ${T.primary}40`, display: 'flex', alignItems: 'center', gap: 8 }}
@@ -311,7 +347,37 @@ export default function FinalCodePage() {
                 <div style={{ background: T.background, padding: 16, borderRadius: 12, marginBottom: 24, fontSize: 13, color: T.muted }}>
                   <p style={{ marginBottom: 8 }}>Repo: <span style={{ color: T.primary }}>{githubImport?.owner}/{githubImport?.repo}</span></p>
                   <p style={{ marginBottom: 8 }}>File: <span style={{ color: T.text }}>{githubImport?.path}</span></p>
-                  <p>Branch: <span style={{ color: T.success }}>{COMMIT.BRANCH_PREFIX}{id}</span></p>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: T.muted,
+                    marginBottom: 8,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Branch Name
+                  </label>
+                  <input
+                    type="text"
+                    value={commitBranchName}
+                    onChange={(e) => setCommitBranchName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: T.background,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 10,
+                      color: T.text,
+                      fontSize: 13,
+                      outline: 'none',
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                    onFocus={e => e.target.style.borderColor = T.primary}
+                    onBlur={e => e.target.style.borderColor = T.border}
+                  />
+                </div>
                 </div>
                 
                 <div style={{ marginBottom: 24 }}>

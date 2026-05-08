@@ -56,10 +56,12 @@ export default function DashboardPage() {
                 backgroundColor: THEME.PRIMARY,
                 color: '#fff',
                 width: '100%',
-                padding: '12px 28px',
+                padding: '12px 24px',
                 borderRadius: '12px',
                 fontSize: '14px',
                 fontWeight: 700,
+                minWidth: 180,
+                whiteSpace: 'nowrap',
                 boxShadow: `0 4px 20px ${THEME.PRIMARY}40`,
                 transition: 'all 0.3s ease'
               }}

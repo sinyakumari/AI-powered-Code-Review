@@ -24,8 +24,7 @@ const ProfilePage = () => {
     languages, 
     repos, 
     contributions, 
-    githubLoading, 
-    fetchGithubData 
+    githubLoading
   } = useProfileStore();
   const { showToast } = useUIStore();
 
@@ -38,6 +37,62 @@ const ProfilePage = () => {
     timezone: ''
   });
 
+  const fetchGithubData = async () => {
+    // Read directly from localStorage
+    const ghToken = localStorage.getItem('github_token');
+    
+    if (!ghToken) {
+      // No github token — show "Connect GitHub" message
+      useProfileStore.setState({ languages: [], repos: [] });
+      return;
+    }
+
+    const jwtToken = localStorage.getItem('token');
+    if (!jwtToken) return;
+    
+    useProfileStore.setState({ githubLoading: true });
+    
+    try {
+      // Fetch languages, repos and contributions in parallel
+      const headers = {
+        'Authorization': `Bearer ${jwtToken}`,
+        'x-github-token': ghToken,
+      };
+
+      const [langRes, repoRes, contribRes] = await Promise.all([
+        fetch('/api/github/languages', { headers }),
+        fetch('/api/github/repos', { headers }),
+        fetch('/api/github/contributions', { headers })
+      ]);
+
+      const [langData, repoData, contribData] = await Promise.all([
+        langRes.json(),
+        repoRes.json(),
+        contribRes.json()
+      ]);
+
+      if (langData.success) {
+        useProfileStore.setState({ languages: langData.languages });
+        sessionStorage.setItem('github_languages_cache', JSON.stringify(langData.languages));
+      }
+
+      if (repoData.success) {
+        const slicedRepos = repoData.repos.slice(0, 2);
+        useProfileStore.setState({ repos: slicedRepos });
+        sessionStorage.setItem('github_repos_cache', JSON.stringify(slicedRepos));
+      }
+
+      if (contribData.success) {
+        useProfileStore.setState({ contributions: contribData.contributions });
+        sessionStorage.setItem('github_contributions_cache', JSON.stringify(contribData.contributions));
+      }
+    } catch {
+      // Silent fail — show empty state
+    } finally {
+      useProfileStore.setState({ githubLoading: false });
+    }
+  };
+
   useEffect(() => {
     if (!_hasHydrated) return;
 
@@ -45,9 +100,41 @@ const ProfilePage = () => {
       router.push('/login');
       return;
     }
+
+    // On mount load from cache (Fix D)
+    const cachedLangs = sessionStorage.getItem('github_languages_cache');
+    if (cachedLangs) {
+      useProfileStore.setState({ languages: JSON.parse(cachedLangs) });
+    }
+
+    const cachedRepos = sessionStorage.getItem('github_repos_cache');
+    if (cachedRepos) {
+      useProfileStore.setState({ repos: JSON.parse(cachedRepos) });
+    }
+
+    const cachedContribs = sessionStorage.getItem('github_contributions_cache');
+    if (cachedContribs) {
+      useProfileStore.setState({ contributions: JSON.parse(cachedContribs) });
+    }
     
     const loadData = async () => {
       setIsLoading(true);
+
+      // FIX A — Check profile cache first
+      const cachedProfile = sessionStorage.getItem('profile_cache');
+      if (cachedProfile) {
+        try {
+          const parsed = JSON.parse(cachedProfile);
+          updateUser(parsed);
+          setFormData({
+            name: parsed.name || '',
+            bio: parsed.bio || '',
+            location: parsed.location || '',
+            timezone: parsed.timezone || ''
+          });
+        } catch { /* fetch fresh */ }
+      }
+
       try {
         if (token) {
           const res = await fetch('/api/profile', {
@@ -57,6 +144,8 @@ const ProfilePage = () => {
 
           if (data.success) {
             updateUser(data.user);
+            // Cache profile
+            sessionStorage.setItem('profile_cache', JSON.stringify(data.user));
             setFormData({
               name: data.user.name || '',
               bio: data.user.bio || '',
@@ -64,9 +153,8 @@ const ProfilePage = () => {
               timezone: data.user.timezone || ''
             });
 
-            if (githubToken) {
-              await fetchGithubData(token, githubToken);
-            }
+            // Fetch GitHub data
+            fetchGithubData();
           }
         }
       } catch (error) {
@@ -77,7 +165,7 @@ const ProfilePage = () => {
     };
 
     loadData();
-  }, [token, githubToken, isAuthenticated, router, updateUser, fetchGithubData, showToast, _hasHydrated]);
+  }, [token, isAuthenticated, router, updateUser, _hasHydrated]);
 
   useEffect(() => {
     document.body.style.overflow = isEditing ? 'hidden' : 'unset';
@@ -238,15 +326,18 @@ const ProfilePage = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {(() => {
-              if (githubToken && languages.length === 0 && githubLoading) {
-                return <div style={{ fontSize: '12px', color: T.outline, padding: '20px 0' }}>Updating tech stack...</div>;
+              const ghToken = (typeof window !== 'undefined' && _hasHydrated) ? localStorage.getItem('github_token') : null;
+              
+              if (!ghToken) {
+                return <div style={{ fontSize: '12px', color: T.outline, padding: '10px 0' }}>Connect GitHub to see your tech stack</div>;
+              }
+              
+              if (languages.length === 0) {
+                if (githubLoading) return <div style={{ fontSize: '12px', color: T.outline, padding: '10px 0' }}>Updating tech stack...</div>;
+                return <div style={{ fontSize: '12px', color: T.outline, padding: '10px 0' }}>No languages found</div>;
               }
 
-              const displayLanguages = (githubToken && languages.length > 0) ? languages.slice(0, 3) : [
-                { name: 'JavaScript', percentage: 92 },
-                { name: 'Python', percentage: 85 },
-                { name: 'React', percentage: 78 }
-              ];
+              const displayLanguages = languages.slice(0, 3);
 
               return displayLanguages.map((lang) => (
                 <div key={lang.name}>
@@ -283,14 +374,18 @@ const ProfilePage = () => {
 
           <div>
             {(() => {
-              if (githubToken && repos.length === 0 && githubLoading) {
-                return <div style={{ fontSize: '12px', color: T.outline, padding: '20px 0' }}>Fetching repositories...</div>;
+              const ghToken = (typeof window !== 'undefined' && _hasHydrated) ? localStorage.getItem('github_token') : null;
+              
+              if (!ghToken) {
+                return <div style={{ fontSize: '12px', color: T.outline, padding: '10px 0' }}>Connect GitHub to see your projects</div>;
               }
 
-              const displayRepos = (githubToken && repos.length > 0) ? repos.slice(0, 2) : [
-                { name: 'portfolio-v2', html_url: '#' },
-                { name: 'ai-code-reviewer', html_url: '#' }
-              ];
+              if (repos.length === 0) {
+                if (githubLoading) return <div style={{ fontSize: '12px', color: T.outline, padding: '10px 0' }}>Fetching repositories...</div>;
+                return <div style={{ fontSize: '12px', color: T.outline, padding: '10px 0' }}>No repositories found</div>;
+              }
+
+              const displayRepos = repos.slice(0, 2);
 
               return displayRepos.map((repo) => (
                 <div 
