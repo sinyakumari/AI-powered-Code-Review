@@ -38,8 +38,6 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GITHUB_CLIENT_ID: ${{ secrets.GH_APP_CLIENT_ID }}
-          GITHUB_CLIENT_SECRET: ${{ secrets.GH_APP_CLIENT_SECRET }}
           GH_APP_CLIENT_ID: ${{ secrets.GH_APP_CLIENT_ID }}
           GH_APP_CLIENT_SECRET: ${{ secrets.GH_APP_CLIENT_SECRET }}
           GH_APP_IMPORT_ID: ${{ secrets.GH_APP_IMPORT_ID }}
