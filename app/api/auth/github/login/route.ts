@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     return response;
   } catch (error) {
     console.error('GitHub Login API Error:', error);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (host ? `${protocol}://${host}` : 'http://localhost:3000');
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     return NextResponse.redirect(new URL('/login?error=github_failed', appUrl));
   }
 }
