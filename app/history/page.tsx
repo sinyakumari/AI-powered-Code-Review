@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
 import Badge from '@/components/ui/Badge';
@@ -36,22 +36,52 @@ export default function ReviewHistoryPage() {
     fetchHistory, 
     deleteReview 
   } = useReviewStore();
+  const [dataLoaded, setDataLoaded] = useState(false);
   const { showToast } = useUIStore();
 
   useEffect(() => {
     if (!_hasHydrated) return;
     
-    const isActuallyAuthenticated = isAuthenticated || (typeof window !== 'undefined' && !!localStorage.getItem('token'));
-    
-    if (!isActuallyAuthenticated) {
+    const token = localStorage.getItem('token');
+    if (!token) {
       router.push(ROUTES.LOGIN);
       return;
     }
 
-    if (token) {
-      fetchHistory(token);
+    // Check cache first
+    const cached = sessionStorage.getItem('history_cache');
+    if (cached) {
+      try {
+        const cachedData = JSON.parse(cached);
+        useReviewStore.setState({ reviews: cachedData, loading: false });
+        setDataLoaded(true);
+        return; // Don't fetch again
+      } catch {
+        // Cache invalid — fetch fresh
+      }
     }
-  }, [filters, token, isAuthenticated, _hasHydrated, router, fetchHistory]);
+
+    // No cache — fetch from API
+    if (token) {
+      fetchHistory(token).then(() => {
+        setDataLoaded(true);
+        const updatedReviews = useReviewStore.getState().reviews;
+        sessionStorage.setItem('history_cache', JSON.stringify(updatedReviews));
+      });
+    }
+  }, [token, isAuthenticated, _hasHydrated, router, fetchHistory]);
+
+  const filteredReviews = useMemo(() => {
+    return reviews.filter(review => {
+      const matchesFilter = 
+        filters.status === 'all' || 
+        review.status?.toLowerCase() === filters.status.toLowerCase();
+      const matchesLanguage =
+        !filters.language || filters.language === 'all' ||
+        review.language?.toLowerCase() === filters.language.toLowerCase();
+      return matchesFilter && matchesLanguage;
+    });
+  }, [reviews, filters.status, filters.language]);
 
   const getTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -73,6 +103,14 @@ export default function ReviewHistoryPage() {
     const success = await deleteReview(review_id, token);
     if (success) {
       showToast('Review deleted successfully', 'success');
+      
+      // Clear cache so next visit refetches
+      sessionStorage.removeItem('history_cache');
+      
+      // Update local state is handled by store's deleteReview already, 
+      // but we need to update the cache with the new state
+      const updated = reviews.filter(r => r.review_id !== review_id);
+      sessionStorage.setItem('history_cache', JSON.stringify(updated));
     } else {
       showToast('Failed to delete review', 'error');
     }
@@ -276,12 +314,12 @@ export default function ReviewHistoryPage() {
         </section>
 
         <section style={{ marginBottom: 32 }}>
-          {(!_hasHydrated || loading) ? (
+          {(!_hasHydrated || (loading && !dataLoaded)) ? (
             <div style={{ padding: '60px 0', textAlign: 'center' }}>
               <div className="msym" style={{ fontSize: 32, color: '#6d5bff', animation: 'spin 2s linear infinite' }}>sync</div>
               <p style={{ marginTop: 12, color: T.muted }}>Fetching history...</p>
             </div>
-          ) : reviews.length === 0 ? (
+          ) : filteredReviews.length === 0 ? (
             <div style={{ 
               padding: '100px 24px', 
               textAlign: 'center', 
@@ -295,7 +333,7 @@ export default function ReviewHistoryPage() {
             </div>
           ) : (
             <div className="history-grid">
-              {reviews.map(item => (
+              {filteredReviews.map(item => (
                 <div key={item.review_id} className="review-card">
                   <div className="card-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

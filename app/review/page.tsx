@@ -685,9 +685,16 @@ function ReviewContent() {
           {/* Diff Mode Toggle button */}
           <button
             onClick={() => {
-              if (isDiffMode) { setDiffRightCode(''); }
-              setIsDiffMode(prev => !prev);
-              if (!isDiffMode && !isSidebarOpen) setIsSidebarOpen(true); // Auto-open sidebar when exiting diff mode
+              if (isDiffMode) {
+                // Exiting diff mode — reopen sidebar
+                setIsDiffMode(false);
+                setDiffRightCode('');
+                // Auto show sidebar when exiting diff
+                setIsSidebarOpen(true);
+              } else {
+                // Entering diff mode
+                setIsDiffMode(true);
+              }
             }}
             style={{
               padding: '6px 16px', fontSize: 12, fontWeight: 600,
@@ -841,7 +848,7 @@ function ReviewContent() {
                   ) : (
                     files.map(file => (
                       <div
-                        key={file.sha}
+                        key={file.path}
                         onClick={() => {
                           if (file.type === 'dir') {
                             fetchFiles(selectedRepo.owner.login, selectedRepo.name, file.path);

@@ -229,7 +229,7 @@ export default function DiffViewPage() {
       <Navbar />
 
       <main className="max-w-[1280px] mx-auto p-8 pt-6">
-        <button onClick={() => router.back()} className="text-slate-400 hover:text-white transition-colors mb-6 flex items-center gap-2 font-medium text-sm">
+        <button onClick={() => router.push(ROUTES.REVIEW)} className="text-slate-400 hover:text-white transition-colors mb-6 flex items-center gap-2 font-medium text-sm">
           {DIFF.BACK || '← Back'}
         </button>
         
